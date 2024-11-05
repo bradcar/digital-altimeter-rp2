@@ -414,16 +414,6 @@ def update_numbers(alt, press):
     return
 
 
-def adjust_feet_elevation (new_alt_feet):
-    """
-    :param new_alt_feet: input new_alt_feet
-    :return: new_alt_feet with adjustment
-    """
-    adjust = 0
-    new_alt_feet = new_alt_feet + adjust
-    return new_alt_feet
-
-
 def input_known_values(buzz):
     """
     adjust altitude in increments of +/- 1 foot or +/- 25 foot
@@ -444,7 +434,7 @@ def input_known_values(buzz):
         buzzer.off()
     #
     oled.fill(0)
-    oled.text(f"adjustiing...", 0, 0)
+    oled.text(f"adjusting...", 0, 0)
     update_numbers(altitude_m, pressure_hpa)
 
     #### Increment/decrement New Altitude in feet, calcule new sea level pressure
