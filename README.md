@@ -29,6 +29,6 @@ todo
 * MicroPython Fonts:  https://github.com/peterhinch/micropython-font-to-py/tree/master -- Didn't use it for this project
  
 ## TODOs
-* Determine if should run SSD1309 on 5v
+* Determine if SSD1309 should be run on 5v
 * Consider putting air quality status in tiny font
 * add button for details of all measurments
