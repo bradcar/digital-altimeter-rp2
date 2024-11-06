@@ -39,6 +39,8 @@ from os import uname
 from sys import implementation
 from time import sleep as zzz
 
+import bmp390
+from sensor_pack.bus_service import I2cAdapter
 from bme680 import BME680_I2C
 from framebuf import FrameBuffer, MONO_HLSB
 from machine import Pin, I2C, ADC
@@ -85,18 +87,14 @@ res = machine.Pin(12)  # RES (RST)  gp12
 dc = machine.Pin(13)  # DC         gp13
 
 led = Pin(25, Pin.OUT)
-# Pin assignment  i2c1 
-i2c = I2C(id=1, scl=Pin(27), sda=Pin(26))
+# Pin assignment, for multiple sensors on i2c
+# i2c = I2C(id=1, scl=Pin(27), sda=Pin(26))
+i2c = I2C(id=1, scl=Pin(27), sda=Pin(26), freq=400_000)
 buzzer = Pin(28, Pin.OUT)
 
-# BME690 #77 address, no way to change to alt address on my version
-bme = BME680_I2C(i2c=i2c)
-
-# multiple sensors on i2c
-# https://learn.adafruit.com/working-with-multiple-i2c-devices/two-devices-using-alternate-address
-# https://forum.arduino.cc/t/two-sensor-with-two-ic2/1140513/11
-#orig  bmp = BMX280(bus, 0x77) # note: can change addr if SDO pin LOW = 0x76
-#mine? bmp = BMX280(i2c, 0x76) # after add solder bump, TODO checck before & after bump
+# BME690 #77 address by default, can change addr if SDO pin LOW = 0x76
+bme = BME680_I2C(i2c=i2c, address=0x77)
+bmp = bmp390.Bmp390(I2cAdapter(i2c), 0x76)
 
 oled_spi = machine.SPI(1)
 # print(f"oled_spi:{oled_spi}")
@@ -199,10 +197,8 @@ def bmp_temp_hpa_alt(sea_level_pressure):
     read temp, pressure from the bmp390 sensor
     measurement takes ~??? ms
     
-    https://github.com/DFRobot/DFRobot_BMP388
-    https://forums.raspberrypi.com/viewtopic.php?t=378591
-    https://forums.adafruit.com/viewtopic.php?t=179852
-    https://github.com/KitWallace/pipico/blob/main/drivers/BMX280.py
+    Driver code by 2022 Roman Shevchik   goctaprog@gmail.com
+    bmp390.py, sensor_pack/base_sensor.py, sensor_pack/bus_service.py
     
     Pressure accuracy:  +/-3 Pa, +/-0.25 meters
 
@@ -210,26 +206,28 @@ def bmp_temp_hpa_alt(sea_level_pressure):
     :return: celsius, hpa_pressure, meters, error string
     """
     print("BMP390 : Not tested yet")
-#     debug = True
-#     try:
-#         celsius = bmp.temperature
-#         hpa_pressure = bme.pressure
-# 
-#         # derive altitude from pressure & sea level pressure
-#         #    meters = 44330.0 * (1.0 - (hpa_pressure/sea_level)**(1.0/5.255) )
-#         meters = calc_altitude(hpa_pressure, sea_level_pressure)
-#         iaq_value = log(gas_kohms) + 0.04 * percent_humidity
-# 
-#         if debug:
-#             print(f"BMP390 Temp °C = {celsius:.2f} C")
-#             print(f"BMP390 Pressure = {hpa_pressure:.2f} hPA")
-#             print(f"BMP390 Alt = {meters * 3.28084:.2f} feet \n")
-# 
-#     except OSError as e:
-#         print("BMP390: Failed to read sensor.")
-#         return None, None, None, "ERROR_BME680:" + str(e)
-# 
-#     return celsius, hpa_pressure, meters, None
+    debug = True
+    try:
+
+        temperature_ready, pressure_ready, cmd_ready = bmp.get_status()
+        if cmd_ready and pressure_ready:
+            t, p, tme = temperature, pressure, bmp.get_sensor_time()
+            pressure_hpa = p / 100.0
+
+        # derive altitude from pressure & sea level pressure
+        #    meters = 44330.0 * (1.0 - (hpa_pressure/sea_level)**(1.0/5.255) )
+        meters = calc_altitude(pressure_hpa, sea_level_pressure)
+
+        if debug:
+            print(f"BMP390 Temp °C = {celsius:.2f} C")
+            print(f"BMP390 Pressure = {hpa_pressure:.2f} hPA")
+            print(f"BMP390 Alt = {meters * 3.28084:.2f} feet \n")
+
+    except OSError as e:
+        print("BMP390: Failed to read sensor.")
+        return None, None, None, "ERROR_BMP680:" + str(e)
+
+    return celsius, hpa_pressure, meters, None
     return
 
 
@@ -504,8 +502,9 @@ debounce_2_time = 0
 
 # Sea level pressure adjustment is 0.12598 hPA per foot @ 365'
 # SLP_BME680_CALIBRATION = 2.516052
-SLP_BME680_CALIBRATION = 3.15 
-INIT_SEA_LEVEL_PRESSURE = 1026.50
+SLP_BME680_CALIBRATION = 3.15
+SLP_BME680_CALIBRATION = 0 
+INIT_SEA_LEVEL_PRESSURE = 1029.30
 
 temp_f = None
 temp_c = None
@@ -525,6 +524,21 @@ else:
     print("ERROR: No i2c1 devices")
 print("====================================")
 print(f"oled_spi:{oled_spi}\n")
+
+# BMP390 setup
+if debug:
+    print(f"chip_id: {bmp.get_id()}")
+    print(f"pwr mode: {bmp.get_power_mode()}")
+    calibration_data = [bmp.get_calibration_data(index) for index in range(14)]
+    print(f"Calibration data: {calibration_data}")
+    print(f"Event: {bmp.get_event()}; Int status: {bmp.get_int_status()}; FIFO length: {bmp.get_fifo_length()}")    
+#Init for bmp390 continuous measurement mode before loop
+bmp.set_oversampling(2, 3)
+bmp.set_sampling_period(5)
+bmp.set_iir_filter(2) 
+bmp.start_measurement(enable_press=True, enable_temp=True, mode=2)
+if debug:
+    print(f"pwr mode: {bmp.get_power_mode()}")
 
 # blank display
 oled.fill(0)
