@@ -5,7 +5,8 @@ Digital Altimeter with adjustments for known altitude/sea-level-pressure using R
 * SSD1309 (SDI) - uses SSD1306 sw, both SDI & I2C code - SDI is faster
   * ssd1306 Framebuffer-based SW for printing text & blit of bitmap images
 * BMP390 (I2C1 #76 addr) - highly accurate air pressure, altitude.
-  * will be on same I2C bus as BME680, but used as main air pressure and altitude, solder blog makes it #76 addr
+  * used as main air pressure and altitude, 
+  * on same I2C bus as BME680, solder bump on sensor makes it #76 addr to distinguish from bme680
 * BME680 (I2C1 #77 addr) - for inside temp & humidity, air pressure, air quality, and altitude.
 * button debounce that uses efficient interrupt code (does not use CPU cycles with sleep, yay!)
 * Temperature from on-board RP2350 (no external pins, ADC4)
