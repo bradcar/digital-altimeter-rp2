@@ -1,12 +1,12 @@
 # digital-altimeter-rp2
-Digital Altimeter with adjustments for known altitude/sea-level-pressure using Raspberry Pi Pico2 with BMP390, BME390, OLED Display
+Digital Altimeter with adjustments for known altitude/sea-level-pressure using Raspberry Pi Pico2 with BMP390, BME680, OLED Display
 
 ## Features of this Raspberry Pi Pico 2 code:
 * SSD1309 (SDI) - uses SSD1306 sw, both SDI & I2C code - SDI is faster
   * ssd1306 Framebuffer-based SW for printing text & blit of bitmap images
-* BMP390 (I2C) - highly accurate air pressure, altitude.
-  * will be on same I2C bus as BME680, but used as mail air pressure and altitude
-* BME680 (I2C) - for inside temp & humidity, air pressure, air quality, and altitude.
+* BMP390 (I2C1 #76 addr) - highly accurate air pressure, altitude.
+  * will be on same I2C bus as BME680, but used as main air pressure and altitude, solder blog makes it #76 addr
+* BME680 (I2C1 #77 addr) - for inside temp & humidity, air pressure, air quality, and altitude.
 * button debounce that uses efficient interrupt code (does not use CPU cycles with sleep, yay!)
 * Temperature from on-board RP2350 (no external pins, ADC4)
  
@@ -14,7 +14,7 @@ Digital Altimeter with adjustments for known altitude/sea-level-pressure using R
 * https://github.com/bradcar/artcar-ultrasonic-dist-rp2
 
 ## Useful sites:
-* Going to use: Foriot's TXS0108E 8 Channel Level Converter Module to convert 5v Ultrasonic and SSD1309 to Support Pico 3.3V signals
+* maybe going to use: Foriot's TXS0108E 8 Channel Level Converter Module to convert 5v Ultrasonic and SSD1309 to Support Pico 3.3V signals
   * SSD1309 SDI is fast, so I need one that can keep up https://www.amazon.com/gp/product/B0CFL9KN7L
 * Powering Pico: https://www.youtube.com/watch?v=3PH9jzRsb5E -- feed, 5v for ultrasonics, and power in my car.
   * TODO get Buck converter 12v car to 5v (to usb-b or micro-usb)
