@@ -50,13 +50,13 @@ bmp.set_iir_filter(2)
 bmp.start_measurement(enable_press=True, enable_temp=True, mode=2)
 if debug:
     print(f"pwr mode: {bmp.get_power_mode()}")
+temperature_ready, pressure_ready, cmd_ready = bmp.get_status()
 
 
 INIT_SEA_LEVEL_PRESSURE = 1029.30
 
 # Main Loop -------------------------------------------------------
 for pressure, temperature in bmp:
-    zzz(3)
     temperature_ready, pressure_ready, cmd_ready = bmp.get_status()
     if cmd_ready and pressure_ready:
         t, p, tme = temperature, pressure, bmp.get_sensor_time()
@@ -66,5 +66,3 @@ for pressure, temperature in bmp:
 
         alt = calc_altitude(pressure_hpa, INIT_SEA_LEVEL_PRESSURE)
         print(f"Altitude = {alt:.1f} m, {alt * 3.28084:.1f} ft\n")
-    else:
-        print(f"Data ready: temp {temperature_ready}, press {pressure_ready}")
