@@ -415,7 +415,7 @@ def update_numbers(alt, press):
     return
 
 
-def input_known_values(buzz):
+def input_known_values(buzz, bmp_update):
     """
     adjust altitude in increments of +/- 1 foot or +/- 25 foot
     show in either feet or meters
@@ -423,12 +423,15 @@ def input_known_values(buzz):
 
     param:buzz: buzz if move to next input
     """
-    global metric, interrupt_1_flag, slp_bme680_hpa
+    global metric, interrupt_1_flag, slp_bme680_hpa, slp_bmp390_hpa
+    
+    #### TODO TODO fix for bme680 adjustment
 
     err = None
     new_alt = altitude_m
     print(f"adjustment start: alt= {new_alt} m, {new_alt * 3.28084} ft")
-    print(f"  sea level pressure = {slp_bme680_hpa} hpa")
+    print(f"{bmp_update=}")
+    print(f"  sea level pressure = {slp_bmp390_hpa if bmp_update else slp_bme680_hpa} hpa")
     if buzz:
         buzzer.on()
         zzz(.2)
@@ -436,7 +439,7 @@ def input_known_values(buzz):
     #
     oled.fill(0)
     oled.text(f"adjusting...", 0, 0)
-    update_numbers(altitude_m, pressure_hpa)
+    update_numbers(altitude_m, slp_bmp390_hpa if bmp_update else slp_bme680_hpa)
 
     #### Increment/decrement New Altitude in feet, calcule new sea level pressure
     rotary_multiplier = 1
@@ -463,7 +466,7 @@ def input_known_values(buzz):
         new_slp = calc_sea_level_pressure(pressure_hpa, new_alt)
         if debug:
             print (f"{new_alt=}, {new_alt_feet=}")
-            print (f"{new_slp=}, {slp_bme680_hpa=}, {(new_slp - slp_bme680_hpa)=}\n")
+            print (f"{new_slp=}, {slp_bmp390_hpa if bmp_update else slp_bme680_hpa=}, {(new_slp - slp_bmp390 if bmp_update else slp_bme680_hpa)=}\n")
                 
         # Button 1: cm/in
         if interrupt_1_flag == 1:
@@ -474,7 +477,7 @@ def input_known_values(buzz):
         zzz(.2)
         if debug:
             print(f"{new_alt=},{new_alt_feet=} ")
-            print(f"{slp_bme680_hpa=},{new_slp=}")
+            print(f"{slp_bmp390_hpa if bmp_update else slp_bme680_hpa=},{new_slp=}")
         update_numbers(new_alt, new_slp)
 
     # upon loop exit beep, and update global slp_bme680_hpa
@@ -484,7 +487,10 @@ def input_known_values(buzz):
         buzzer.on()
         zzz(.2)
         buzzer.off()
-    slp_bme680_hpa = new_slp
+    if bmp_update:
+        slp_bmp390_hpa = new_slp
+    else:
+        slp_bme680_hpa = new_slp
 
     # return after 5 seconds
     zzz(0.5)
@@ -506,7 +512,7 @@ debounce_2_time = 0
 # Sea level pressure adjustment is 0.03783 hPA per foot @ 365'
 SLP_BMP390_CALIBRATION = 0.42
 SLP_BME680_CALIBRATION = 2.02 
-INIT_SEA_LEVEL_PRESSURE = 1025.20
+INIT_SEA_LEVEL_PRESSURE = 1024.80
 
 temp_f = None
 temp_c = None
@@ -581,7 +587,7 @@ try:
         if interrupt_2_flag == 1:
             interrupt_2_flag = 0
             if debug: print("button 2 Interrupt Detected: input known values")
-            error = input_known_values(True)
+            error = input_known_values(True, bmp_update=True)
             if error:
                 print(f"Error setting known values: {error}")
 
