@@ -52,17 +52,29 @@ if debug:
     print(f"pwr mode: {bmp.get_power_mode()}")
 temperature_ready, pressure_ready, cmd_ready = bmp.get_status()
 
+# correction added 
+INIT_SEA_LEVEL_PRESSURE = 1025.20 + 0.45
 
-INIT_SEA_LEVEL_PRESSURE = 1029.30
+# get first temp & pressure reading
+tempc = bmp.get_temperature()
+print(f"tempc: {tempc:.2f} °C")
+hpa = bmp.get_pressure() / 100.0
+print(f"hpa  : {hpa:.2f} hPa\n")
 
+# pressure & temp can be read any time, generally updates are
+# every 158ms to 700ms, when both are cmd_ready and pressure_ready both true
 # Main Loop -------------------------------------------------------
+sense_start = 0
+start = time.ticks_ms()
 for pressure, temperature in bmp:
     temperature_ready, pressure_ready, cmd_ready = bmp.get_status()
+    
+    # makes sure that pressure has been updated before reading
     if cmd_ready and pressure_ready:
-        t, p, tme = temperature, pressure, bmp.get_sensor_time()
-        pressure_hpa = p / 100.0
+        read_time = bmp.get_sensor_time()
 
-        print(f"Temp: {t:.2f} °C, pressure: {pressure_hpa:.2f} hPa, power_mode={bmp.get_power_mode()}")
+        pressure_hpa = pressure / 100.0
+        print(f"Temp: {temperature:.2f} °C, pressure: {pressure_hpa:.2f} hPa")
 
         alt = calc_altitude(pressure_hpa, INIT_SEA_LEVEL_PRESSURE)
         print(f"Altitude = {alt:.1f} m, {alt * 3.28084:.1f} ft\n")
