@@ -25,11 +25,15 @@
 #     https://docs.micropython.org/en/latest/esp8266/tutorial/ssd1306.html
 #
 # pycharm stubs
-#   : https://micropython-stubs.readthedocs.io/en/main/packages.html#mp-packages
+#    https://micropython-stubs.readthedocs.io/en/main/packages.html#mp-packages
 #
 # TODOs
+#  * right not if bmp390 exists it just overwrite bme680 temp & humidity, need
+#    to plan logic if one or the other don't exist
+#  * right now calibration adjust is only for bme680 SLP and NOT bmp390 SLP !!!
 #  * add digital encoder, use it's button for 10' correction vs else 1' adjust
-#  * add button #3 to switch between large font summary & detailed data 
+#  * add button #3 to switch between large font summary & detailed data
+#  
 #
 # by bradcar
 
@@ -165,6 +169,8 @@ def iaq_quality(iaq_value):
 def calc_sea_level_pressure(hpa, meters):
     """
     Calculate the sea level pressure from the hpa pressure at a known elevation
+    formula from: https://cdn-shop.adafruit.com/datasheets/BST-BMP180-DS000-09.pdf
+
     slightly different formula at:
        https://www.brisbanehotairballooning.com.au/pressure-and-altitude-conversion/
        https://www.mide.com/air-pressure-at-altitude-calculator
@@ -176,13 +182,13 @@ def calc_sea_level_pressure(hpa, meters):
     :return: sea level hpa based on known altitude & pressure
     """
     sea_level_pressure = hpa / (1.0 - (meters / 44330.0)) ** 5.255
-
     return sea_level_pressure
 
 
 def calc_altitude(hpa, sea_level_pressure):
     """
-    Calculate the altitude from sea level pressure and hpa pressure 
+    Calculate the altitude from sea level pressure and hpa pressure
+    formula from: https://cdn-shop.adafruit.com/datasheets/BST-BMP180-DS000-09.pdf
 
     :param hpa: current hpa pressure
     :param sea_level_pressure: sea level hpa from closest airport
@@ -201,22 +207,25 @@ def bmp_temp_hpa_alt(sea_level_pressure):
     bmp390.py, sensor_pack/base_sensor.py, sensor_pack/bus_service.py
     
     Pressure accuracy:  +/-3 Pa, +/-0.25 meters
+    
+    note: we are not certain that the values have be updated, OK for this app
+    to check that need
+    temperature_ready, pressure_ready, cmd_ready = bmp.get_status()
+    and wait for both pressure_ready  and  cmd_ready are true
 
     :param sea_level_pressure: sea level hpa from closest airport
     :return: celsius, hpa_pressure, meters, error string
     """
-    print("BMP390 : Not tested yet")
     debug = True
     try:
-
-        temperature_ready, pressure_ready, cmd_ready = bmp.get_status()
-        if cmd_ready and pressure_ready:
-            t, p, tme = temperature, pressure, bmp.get_sensor_time()
-            pressure_hpa = p / 100.0
+        # note: we are not certain that the values have be updated, OK for this app
+        # call temp before pressure - don't know why
+        celsius = bmp.get_temperature()
+        hpa_pressure = bmp.get_pressure() / 100.0
 
         # derive altitude from pressure & sea level pressure
         #    meters = 44330.0 * (1.0 - (hpa_pressure/sea_level)**(1.0/5.255) )
-        meters = calc_altitude(pressure_hpa, sea_level_pressure)
+        meters = calc_altitude(hpa_pressure, sea_level_pressure)
 
         if debug:
             print(f"BMP390 Temp °C = {celsius:.2f} C")
@@ -270,13 +279,6 @@ def bme_temp_humid_hpa_iaq_alt(sea_level_pressure):
         return None, None, None, None, None, "ERROR_BME680:" + str(e)
 
     return celsius, percent_humidity, hpa_pressure, iaq_value, meters, None
-
-
-def read_pot():
-    adc_value = pot.read_u16()
-    volt = (3.3 / 65535) * adc_value
-    percent = (volt / 3.3)
-    return percent
 
 
 def display_car(celsius, fahrenheit):
@@ -420,12 +422,12 @@ def input_known_values(buzz):
 
     param:buzz: buzz if move to next input
     """
-    global metric, interrupt_1_flag, sea_level_pressure_hpa
+    global metric, interrupt_1_flag, slp_bme680_hpa
 
     err = None
     new_alt = altitude_m
     print(f"adjustment start: alt= {new_alt} m, {new_alt * 3.28084} ft")
-    print(f"  sea level pressure = {sea_level_pressure_hpa} hpa")
+    print(f"  sea level pressure = {slp_bme680_hpa} hpa")
     if buzz:
         buzzer.on()
         zzz(.2)
@@ -460,7 +462,7 @@ def input_known_values(buzz):
         new_slp = calc_sea_level_pressure(pressure_hpa, new_alt)
         if debug:
             print (f"{new_alt=}, {new_alt_feet=}")
-            print (f"{new_slp=}, {sea_level_pressure_hpa=}, {(new_slp - sea_level_pressure_hpa)=}\n")
+            print (f"{new_slp=}, {slp_bme680_hpa=}, {(new_slp - slp_bme680_hpa)=}\n")
                 
         # Button 1: cm/in
         if interrupt_1_flag == 1:
@@ -471,17 +473,17 @@ def input_known_values(buzz):
         zzz(.2)
         if debug:
             print(f"{new_alt=},{new_alt_feet=} ")
-            print(f"{sea_level_pressure_hpa=},{new_slp=}")
+            print(f"{slp_bme680_hpa=},{new_slp=}")
         update_numbers(new_alt, new_slp)
 
-    # upon loop exit beep, and update global sea_level_pressure_hpa
+    # upon loop exit beep, and update global slp_bme680_hpa
     print(f"adjustment end: alt= {new_alt} m, {new_alt * 3.28084} ft")
     print(f"  sea level pressure = {new_slp} hpa\n")
     if buzz:
         buzzer.on()
         zzz(.2)
         buzzer.off()
-    sea_level_pressure_hpa = new_slp
+    slp_bme680_hpa = new_slp
 
     # return after 5 seconds
     zzz(0.5)
@@ -500,11 +502,10 @@ interrupt_2_flag = 0
 debounce_1_time = 0
 debounce_2_time = 0
 
-# Sea level pressure adjustment is 0.12598 hPA per foot @ 365'
-# SLP_BME680_CALIBRATION = 2.516052
-SLP_BME680_CALIBRATION = 3.15
-SLP_BME680_CALIBRATION = 0 
-INIT_SEA_LEVEL_PRESSURE = 1029.30
+# Sea level pressure adjustment is 0.03783 hPA per foot @ 365'
+SLP_BMP390_CALIBRATION = 0.42
+SLP_BME680_CALIBRATION = 2.02 
+INIT_SEA_LEVEL_PRESSURE = 1025.20
 
 temp_f = None
 temp_c = None
@@ -543,12 +544,15 @@ if debug:
 # blank display
 oled.fill(0)
 oled.text("Starting", 0, 0)
-oled.text("altimeter...", 0, 8)
+oled.text("altimeter...", 0, 12)
 oled.show()
 
-sea_level_pressure_hpa = INIT_SEA_LEVEL_PRESSURE + SLP_BME680_CALIBRATION
-print(f"Initial:   sea level pressure = {INIT_SEA_LEVEL_PRESSURE} hpa")
-print(f"Calibrate: sea level pressure = {sea_level_pressure_hpa} hpa\n")
+slp_bmp390_hpa = INIT_SEA_LEVEL_PRESSURE + SLP_BMP390_CALIBRATION
+slp_bme680_hpa = INIT_SEA_LEVEL_PRESSURE + SLP_BME680_CALIBRATION
+print(f"Actual:   sea level pressure = {INIT_SEA_LEVEL_PRESSURE:.2f} hpa")
+print(f"Calibrated BMP390 Sea level   = {slp_bmp390_hpa:.2f} hpa")
+print(f"Calibrated BME680 Sea level   = {slp_bme680_hpa:.2f} hpa\n")
+
 
 if buzzer_sound: buzzer.on()
 zzz(.2)
@@ -592,12 +596,24 @@ try:
             if temp > OVER_TEMP_WARNING:
                 print(f"WARNING: onboard Pico 2 temp = {temp:.1f}C")
 
-            temp_c, humidity, pressure_hpa, iaq, altitude_m, error = bme_temp_humid_hpa_iaq_alt(sea_level_pressure_hpa)
+            temp_c, humidity, pressure_hpa, iaq, altitude_m, error = bme_temp_humid_hpa_iaq_alt(slp_bme680_hpa)
             if error:
                 print(f"No Altitude sensor: {error}")
             else:
                 if debug: print(f"{temp_c=:.2f}")
                 temp_f = (temp_c * 9.0 / 5.0) + 32.0
+            first_run = False
+            
+            print(f"{slp_bmp390_hpa=}")
+            t_c, p_hpa, alt_m, error = bmp_temp_hpa_alt(slp_bmp390_hpa)
+            if error:
+                print(f"No high-precision Altitude sensor: {error}")
+            else:
+                if debug: print(f"{temp_c=:.2f}")
+                temp_c = t_c
+                temp_f = (temp_c * 9.0 / 5.0) + 32.0
+                altitude_m = alt_m
+                pressure_hpa = p_hpa
             first_run = False
 
         # Every loop adjust for if sensor read
