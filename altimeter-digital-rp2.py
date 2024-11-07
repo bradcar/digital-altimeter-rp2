@@ -3,7 +3,8 @@
 # Sensors used
 #    - BMP390 highly accurate pressure & altitude
 #    - BME680 temp, humidity, pressure, IAQ, altitude
-#    - rotary encoder to adjust alt & pressure (slp at nearest airport)
+#    - rotary encoder to adjust alt & pressure
+#      use sea level pressure at nearest airport
 #    - ssd1309 SDI 128x64 OLED Display (SW is ssd1306)
 #    - in/cm F/C changed with button #1
 #    - buttons debounced with efficient rp2 interrupts -- nice!
@@ -584,9 +585,7 @@ try:
             if error:
                 print(f"Error setting known values: {error}")
 
-                # EVERY 3 SECONDS, calc speed of sound based on
         #  * BME680 temp & humidity (189ms duration)
-
         if first_run or elapsed_time > 3000:
             dwell = DWELL_MS_LOOP - 189
             time_since_last_temp_update = time.ticks_ms()
@@ -595,7 +594,8 @@ try:
             temp = onboard_temperature()
             if temp > OVER_TEMP_WARNING:
                 print(f"WARNING: onboard Pico 2 temp = {temp:.1f}C")
-
+                
+            # get bme680 sensor data
             temp_c, humidity, pressure_hpa, iaq, altitude_m, error = bme_temp_humid_hpa_iaq_alt(slp_bme680_hpa)
             if error:
                 print(f"No Altitude sensor: {error}")
@@ -604,7 +604,7 @@ try:
                 temp_f = (temp_c * 9.0 / 5.0) + 32.0
             first_run = False
             
-            print(f"{slp_bmp390_hpa=}")
+            # get bmp390 sensor data, overwrite temp_c, temp_f, and altitude_m
             t_c, p_hpa, alt_m, error = bmp_temp_hpa_alt(slp_bmp390_hpa)
             if error:
                 print(f"No high-precision Altitude sensor: {error}")
