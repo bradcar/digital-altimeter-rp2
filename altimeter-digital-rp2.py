@@ -116,12 +116,12 @@ OVER_TEMP_WARNING = 70.0
 # Button debouncer with efficient interrupts, which don't take CPU cycles!
 # https://electrocredible.com/raspberry-pi-pico-external-interrupts-button-micropython/
 def callback(pin):
-    global interrupt_1_flag, interrupt_2_flag, debounce_1_time, debounce_2_time
+    global button_1_pushed, button_2_pushed, debounce_1_time, debounce_2_time
     if pin == button_1 and (int(time.ticks_ms()) - debounce_1_time) > 500:
-        interrupt_1_flag = 1
+        button_1_pushed = True
         debounce_1_time = time.ticks_ms()
     elif pin == button_2 and (int(time.ticks_ms()) - debounce_2_time) > 500:
-        interrupt_2_flag = 1
+        button_2_pushed = True
         debounce_2_time = time.ticks_ms()
 
 
@@ -382,10 +382,10 @@ def display_big_num(buzz):
 
 
 def button2_not_pushed():
-    global interrupt_2_flag
+    global button_2_pushed
     debug = True
-    if interrupt_2_flag == 1:
-        interrupt_2_flag = 0
+    if button_2_pushed:
+        button_2_pushed = False
         return False
     else:
         return True
@@ -429,7 +429,7 @@ def adjust_altitude_slp(buzz, bmp_update):
     param:buzz: buzz if move to next input
     param:bmp_update: if bmp_update=True, then update bmp390, else bme680
     """
-    global metric, interrupt_1_flag, slp_bme680_hpa, slp_bmp390_hpa
+    global metric, button_1_pushed, slp_bme680_hpa, slp_bmp390_hpa
     
     #### TODO TODO fix for bme680 adjustment
 
@@ -450,8 +450,8 @@ def adjust_altitude_slp(buzz, bmp_update):
     while (button2_not_pushed()):
         
         # Button 1: toggle between cm/in
-        if interrupt_1_flag == 1:
-            interrupt_1_flag = 0
+        if button_1_pushed:
+            button_1_pushed = False
             if debug: print("button 1 Interrupt Detected: in/cm")
             metric = not metric  # Toggle between metric and imperial units
 
@@ -508,15 +508,15 @@ buzzer_sound = True
 metric = False
 debug = False
 
-interrupt_1_flag = 0
-interrupt_2_flag = 0
+button_1_pushed = False
+button_2_pushed = False
 debounce_1_time = 0
 debounce_2_time = 0
 
 # Sea level pressure adjustment is 0.03783 hPA per foot @ 365'
 SLP_BMP390_CALIBRATION = 0.42
 SLP_BME680_CALIBRATION = 2.02 
-INIT_SEA_LEVEL_PRESSURE = 1024.00
+INIT_SEA_LEVEL_PRESSURE = 1024.20
 
 temp_f = None
 temp_c = None
@@ -581,15 +581,15 @@ try:
         if debug: print(f"Time since last temp ={elapsed_time}")
 
         # Button 1: cm/in
-        if interrupt_1_flag == 1:
-            interrupt_1_flag = 0
+        if button_1_pushed:
+            button_1_pushed = False
             if debug: print("button 1 Interrupt Detected: in/cm")
             metric = not metric  # Toggle between metric and imperial units
 
         # Button 2: rear sensors or front sensors
-        if interrupt_2_flag == 1:
-            interrupt_2_flag = 0
-            if debug: print("button 2 Interrupt Detected: input known values")
+        if button_2_pushed:
+            button_2_pushed = False
+            if debug: print("button 2 Interrupt Detected: adjust altitude & slp")
             error = adjust_altitude_slp(True, bmp_update=True)
             if error:
                 print(f"Error setting known values: {error}")
