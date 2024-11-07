@@ -2,10 +2,11 @@
 Digital Altimeter with adjustments for known altitude/sea-level-pressure using Raspberry Pi Pico2 with BMP390, BME680, OLED Display
 
 ## Features of this Raspberry Pi Pico 2 code:
-* SSD1309 (SDI) - uses SSD1306 sw, both SDI & I2C code - SDI is faster
+* SSD1309 (SDI) - uses SSD1306 SW, both SDI & I2C code - SDI is faster
   * ssd1306 Framebuffer-based SW for printing text & blit of bitmap images
 * BMP390 (I2C1 #76 addr) - highly accurate air pressure, altitude.
-  * will be on same I2C bus as BME680, but used as main air pressure and altitude, solder blog makes it #76 addr
+  * used as main air pressure and altitude, 
+  * on same I2C bus as BME680, solder bump on sensor makes it #76 addr to have code address it distictly from bme680
 * BME680 (I2C1 #77 addr) - for inside temp & humidity, air pressure, air quality, and altitude.
 * button debounce that uses efficient interrupt code (does not use CPU cycles with sleep, yay!)
 * Temperature from on-board RP2350 (no external pins, ADC4)
