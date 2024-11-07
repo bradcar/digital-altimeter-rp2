@@ -32,8 +32,7 @@
 #  * right not if bmp390 exists it just overwrite bme680 temp & humidity, need
 #    to plan logic if one or the other don't exist
 #  * ERROR adjust_altitude_slp still uses altitude_m and pressure_hpa from bmp390
-#          so doesn't really get bme680 adusted correctly
-#  * add digital encoder, use it's button for 10' correction vs else 1' adjust
+#          so doesn't really get bme680 adjusted correctly
 #  * add button #3 to switch between large font summary & detailed data
 #  
 #
