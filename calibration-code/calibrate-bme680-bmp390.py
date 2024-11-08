@@ -287,7 +287,9 @@ buzzer_sound = True
 debug = False
 
 # Sea level pressure adjustment is 0.03783 hPA per foot @ 365'
-INIT_SEA_LEVEL_PRESSURE = 1022.90
+SLP_CALIBRATION_BMP390 = 0.42
+SLP_BME680_CALIBRATION = 2.02 
+INIT_SEA_LEVEL_PRESSURE =1022.40
 
 temp_f = None
 temp_c = None
@@ -329,34 +331,38 @@ oled.text("Starting", 0, 0)
 oled.text("Calibration...", 0, 12)
 oled.show()
 
-slp_bmp390_hpa = INIT_SEA_LEVEL_PRESSURE 
-slp_bme680_hpa = INIT_SEA_LEVEL_PRESSURE
+slp_hpa_bmp390 = INIT_SEA_LEVEL_PRESSURE 
+slp_hpa_bme680 = INIT_SEA_LEVEL_PRESSURE
 
 print("start of main loop\n")
 # main loop
 try:
     while True:             
         # get bmp390 sensor data, overwrite temp_c, temp_f, and altitude_m
-        bmp390_temp_c, bmp390_hpa, bmp390_alt_m, error = bmp390_sensor(slp_bmp390_hpa)
+        temp_c_bmp390, hpa_bmp390, alt_m_bmp390, error_bmp390 = bmp390_sensor(slp_hpa_bmp390)
+        if error_bmp390:
+            print (f"BMP390 ERROR {error_bmp390}")
         
         # get bme680 sensor data
-        bme680_temp_c,  bme680_humidity, bme680_hpa,  bme680_iaq,  bme680_alt_m, error = bme680_sensor(slp_bme680_hpa)
-
+        temp_c_bme680,  humidity_bme680, hpa_bme680,  iaq_bme680,  alt_m_bme680, error_bme680  = bme680_sensor(slp_hpa_bme680)
+        if error_bme680:
+            print (f"BME680 ERROR {error_bme680}")
+            
         # calc altitude based on pressures
-        initial_bmp390_alt = calc_altitude(bmp390_hpa, slp_bmp390_hpa)
-        initial_bme680_alt = calc_altitude(bme680_hpa, slp_bme680_hpa)
-        print(f"bmp390 initial est {initial_bmp390_alt*3.28084:.1f} feet")
-        print(f"bme680 initial est {initial_bme680_alt*3.28084:.1f} feet")
+        initial_alt_bmp390 = calc_altitude(hpa_bmp390, slp_hpa_bmp390)
+        initial_alt_bme680 = calc_altitude(hpa_bme680, slp_hpa_bme680)
+        print(f"bmp390 initial est {initial_alt_bmp390*3.28084:.1f} feet")
+        print(f"bme680 initial est {initial_alt_bme680*3.28084:.1f} feet")
         
         adjust_to_feet = float(input("\nEnter altitude (in feet): "))
         adjust_to_meters = adjust_to_feet / 3.28084
-        bmp390_hpa_adj = calc_sea_level_pressure(bmp390_hpa, adjust_to_meters) - slp_bmp390_hpa
-        bme680_hpa_adj = calc_sea_level_pressure(bme680_hpa, adjust_to_meters) - slp_bme680_hpa
+        hpa_adj_bmp390 = calc_sea_level_pressure(hpa_bmp390, adjust_to_meters) - slp_hpa_bmp390
+        hpa_adj_bme680 = calc_sea_level_pressure(hpa_bme680, adjust_to_meters) - slp_hpa_bme680
 
         print("\nCalibration values:")
         print(f"\nINIT_SEA_LEVEL_PRESSURE = {INIT_SEA_LEVEL_PRESSURE:.2f}")
-        print(f"SLP_BMP390_CALIBRATION = {bmp390_hpa_adj:.4f}")
-        print(f"SLP_BME680_CALIBRATION = {bme680_hpa_adj:.4f}\n")
+        print(f"SLP_CALIBRATION_BMP390 = {hpa_adj_bmp390:.4f}")
+        print(f"SLP_CALIBRATION_BME680 = {hpa_adj_bme680:.4f}\n")
         
         _ = input("Enter for next loop: ")
 
