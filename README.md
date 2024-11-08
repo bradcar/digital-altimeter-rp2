@@ -26,7 +26,8 @@ todo
 * https://github.com/bradcar/artcar-ultrasonic-dist-rp2
 
 ## Other useful sites (used in this code):
-* MicroPython Fonts:  https://github.com/peterhinch/micropython-font-to-py/tree/master -- Didn't use it for this project
+* MicroPython Fonts:  https://github.com/peterhinch/micropython-font-to-py/tree/master
+* BMP390 driver code I'm using: https://github.com/octaprog7/BMP390
  
 ## TODOs
 * Consider putting air quality status in tiny font
