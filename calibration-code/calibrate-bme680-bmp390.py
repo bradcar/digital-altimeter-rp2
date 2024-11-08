@@ -204,7 +204,7 @@ def bmp390_sensor(sea_level_pressure):
     return
 
 
-def bep680_sensor(sea_level_pressure):
+def bme680_sensor(sea_level_pressure):
     """
     read temp, humidity, pressure, Indoor Air Qualtiy (IAQ) from the BME680 sensor
     measurement takes ~189ms
@@ -287,9 +287,7 @@ buzzer_sound = True
 debug = False
 
 # Sea level pressure adjustment is 0.03783 hPA per foot @ 365'
-SLP_BMP390_CALIBRATION = 0.42
-SLP_BME680_CALIBRATION = 2.02 
-INIT_SEA_LEVEL_PRESSURE =1022.80
+INIT_SEA_LEVEL_PRESSURE = 1022.90
 
 temp_f = None
 temp_c = None
@@ -342,7 +340,7 @@ try:
         bmp390_temp_c, bmp390_hpa, bmp390_alt_m, error = bmp390_sensor(slp_bmp390_hpa)
         
         # get bme680 sensor data
-        bme680_temp_c,  bme680_humidity, bme680_hpa,  bme680_iaq,  bme680_alt_m, error = bep680_sensor(slp_bme680_hpa)
+        bme680_temp_c,  bme680_humidity, bme680_hpa,  bme680_iaq,  bme680_alt_m, error = bme680_sensor(slp_bme680_hpa)
 
         # calc altitude based on pressures
         initial_bmp390_alt = calc_altitude(bmp390_hpa, slp_bmp390_hpa)
