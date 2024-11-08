@@ -15,11 +15,10 @@
 #
 #    my home office is
 #        365.0 feet elevation, 111.25m
-#        first bme680 says 287.1 feet, 85.51 m
-#        correction: +77.9' or + 25.75m correction needed)
-#
+#    my dining room table
+#        355 feet elevation (-10')
 #    my garage is at <todo> feet elevation
-#        ~335 feet elevation, 102.11m  (26' lower than office)
+#        339 feet elevation (-26')
 #
 # Key links
 #     https://micropython.org/download/RPI_PICO2/ for latest .uf2 preview
