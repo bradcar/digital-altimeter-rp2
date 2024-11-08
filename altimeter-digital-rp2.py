@@ -543,8 +543,8 @@ else:
 print("====================================")
 print(f"oled_spi:{oled_spi}\n")
 
-# BMP390 setup for continuous measurement mode
-if debug and not error_bmp:
+# BMP390 configuration debug 
+if debug and not error_bmp390:
     print("BMP390 initialization value:")
     print(f"chip_id: {bmp.get_id()}")
     print(f"pwr mode: {bmp.get_power_mode()}")
@@ -552,6 +552,8 @@ if debug and not error_bmp:
     print(f"Calibration data: {calibration_data}")
     print(f"Event: {bmp.get_event()}; Int status: {bmp.get_int_status()}; FIFO length: {bmp.get_fifo_length()}")    
 
+# initialize BMP390 for continuous measurement mode
+if not error_bmp390:
     # https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmp390-ds002.pdf
     # ultra-high
 #     bmp.set_oversampling(4, 1) # pressure (4=ultrahigh), temp (1=2x recommended)
