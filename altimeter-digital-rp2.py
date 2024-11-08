@@ -29,12 +29,8 @@
 #    https://micropython-stubs.readthedocs.io/en/main/packages.html#mp-packages
 #
 # TODOs
-#  * right not if bmp390 exists it just overwrite bme680 temp & humidity, need
-#    to plan logic if one or the other don't exist
-#  * ERROR adjust_altitude_slp still uses altitude_m and pressure_hpa from bmp390
-#          so doesn't really get bme680 adjusted correctly
+#  * fix adjust_altitude_slp(True, bmp_update=True) to update bme if bme exists
 #  * add button #3 to switch between large font summary & detailed data
-#  
 #
 # by bradcar
 
@@ -222,7 +218,8 @@ def bmp390_sensor(sea_level_pressure):
     read temp, pressure from the bmp390 sensor
     measurement takes ~??? ms
     
-    Driver code by 2022 Roman Shevchik   goctaprog@gmail.com
+    Driver code by 2022 Roman Shevchik
+    https://github.com/octaprog7/BMP390
     bmp390.py, sensor_pack/base_sensor.py, sensor_pack/bus_service.py
     
     Pressure accuracy:  +/-3 Pa, +/-0.25 meters
@@ -263,7 +260,7 @@ def bme680_sensor(sea_level_pressure):
     read temp, humidity, pressure, Indoor Air Qualtiy (IAQ) from the BME680 sensor
     measurement takes ~189ms
     
-    Pressure accuracy:  +/-12 Pa, +/-1 meters
+    Pressure accuracy:  +/-12 Pa, +/-1 meter
     
     function iaq_quality(iaq) will show the textual scale
     IAQ: (0- 50 low, 51-100 ave, 101-150 poor, 151-200 bad, 201-300 VBad, 301-500 danger)
@@ -306,25 +303,24 @@ def display_environment(buzz):
     param:buzz:  distance if dist = -1.0 then display error
     """
     oled.fill(0)
-    if temp_c:
-        if metric:
-            oled.text(f"Temp = {temp_c:.1f}C", 0, 0)
-        else:
-            oled.text(f"Temp = {temp_f:.1f}F", 0, 0)
-        if humidity: oled.text(f"Humid= {humidity:.1f}%", 0, 12)
-    else:
-        oled.text(f"No Temp/Humidity", 0, 10)
-        oled.text(f" Sensor Working", 0, 20)
-
-    oled.text(f"IAQ = {iaq:.0f} {iaq_quality(iaq)}", 0, 24)
-
     if metric:
-        oled.text(f"Bar = {pressure_hpa:.1f} hpa", 0, 36)
-        oled.text(f"Alt = {altitude_m:.1f}m", 0, 52)
+        oled.text(f"Alt = {altitude_m:.1f}m", 0, 0)
+        oled.text(f"Temp = {temp_c:.1f}C", 0, 16)
+        oled.text(f"Bar  ={pressure_hpa:.1f} hpa", 0, 28)
     else:
-        oled.text(f"Bar = {pressure_hpa * 0.02953:.2f}\"", 0, 36)
-        oled.text(f"Alt = {altitude_m * 3.28084:.0f}\'", 0, 52)
+        oled.text(f"Alt = {altitude_m * 3.28084:.0f}\'", 0, 0)
+        oled.text(f"Temp = {temp_f:.1f}F", 0, 16)
+        oled.text(f"Bar  = {pressure_hpa * 0.02953:.2f}\"", 0, 28)
+    
+    if humidity:
+        oled.text(f"Hum  = {humidity:.1f}%", 0, 40)
+    else:
+        oled.text(f"Hum  = no sensor", 0, 40)
 
+    if iaq:
+        oled.text(f"IAQ  = {iaq:.0f} {iaq_quality(iaq)}", 0, 52)
+    else:
+        oled.text(f"IAQ  = no sensor", 0, 52)
     oled.show()
     return
 
@@ -341,7 +337,7 @@ def display_big_num(buzz):
     oled.fill(0)
     oled.text("Altimeter", 0, 0)
     
-    # when iaq quality poor, flash "iaq" at dwell rate (300ms) in box in upper right
+    # when iaq quality is poor, flash "iaq" at dwell rate (300ms) in box in upper right
     if iaq and iaq > 150.0:
         oled.fill_rect(128-3*8, 0, 26, 10, 1-warning_toggle)
         oled.text("iaq", 128-3*8-1, 1, warning_toggle)
@@ -397,24 +393,21 @@ def adjust_altitude_slp(buzz, bmp_update):
     adjust altitude in increments of +/- 1 foot or +/- 25 foot
     show in either feet or meters
     dependent variable is new Sea Level Pressure in hpa
-    
-    TODO: ERROR still uses altitude_m and pressure_hpa from bmp390
-          so doesn't really get bme680 adusted correctly
 
     param:buzz: buzz if move to next input
     param:bmp_update: if bmp_update=True, then update bmp390, else bme680
     """
-    global metric, slp_bme680_hpa, slp_bmp390_hpa
+    global metric, slp_hpa_bme680, slp_hpa_bmp390
     
     new_alt = altitude_m
     print(f"Adjustment start: alt= {new_alt} m, {new_alt * 3.28084} ft")
     print(f"updating: {"bmp390" if bmp_update else "bme680"}")
-    print(f"global slp values={slp_bmp390_hpa=}, {slp_bme680_hpa=}\n")
+    print(f"global slp values={slp_hpa_bmp390=}, {slp_hpa_bme680=}\n")
     if buzz:
         buzzer.on()
         zzz(.2)
         buzzer.off()
-    update_settings_display(altitude_m, slp_bmp390_hpa if bmp_update else slp_bme680_hpa)
+    update_settings_display(altitude_m, slp_hpa_bmp390 if bmp_update else slp_hpa_bme680)
 
     #### Increment/decrement New Altitude in feet, calcule new sea level pressure
     rotary_multiplier = 1
@@ -447,10 +440,10 @@ def adjust_altitude_slp(buzz, bmp_update):
         if debug:
             print (f"{new_alt=}, {new_alt_feet=}")
             print(f"updating: {"bmp390" if bmp_update else "bme680"}")
-            print(f"{new_slp=}, {slp_bmp390_hpa=}, {slp_bme680_hpa=}")
+            print(f"{new_slp=}, {slp_hpa_bmp390=}, {slp_hpa_bme680=}")
         update_settings_display(new_alt, new_slp)
 
-    # upon loop exit beep, and update global slp_bme680_hpa
+    # upon loop exit beep, and update global slp_hpa_bme680
     if buzz:
         buzzer.on()
         zzz(.2)
@@ -458,17 +451,17 @@ def adjust_altitude_slp(buzz, bmp_update):
     
     print(f"Adjustment end:   alt= {new_alt} m, {new_alt * 3.28084} ft")
     if bmp_update:
-        slp_bmp390_hpa = new_slp
+        slp_hpa_bmp390 = new_slp
         print(f"updated: bmp390")
     else:
-        slp_bme680_hpa = new_slp
+        slp_hpa_bme680 = new_slp
         print(f"updated: bme680")
-    print(f"{new_slp=}, {slp_bmp390_hpa=}, {slp_bme680_hpa=}\n")
+    print(f"{new_slp=}, {slp_hpa_bmp390=}, {slp_hpa_bme680=}\n")
     return
 
 
 # =========================  startup code =========================
-show_env = True
+show_env_details = False
 set_known = False
 buzzer_sound = True
 metric = False
@@ -480,34 +473,44 @@ debounce_1_time = 0
 debounce_2_time = 0
 
 # Sea level pressure adjustment is 0.03783 hPA per foot @ 365'
-SLP_BMP390_CALIBRATION = 0.42
-SLP_BME680_CALIBRATION = 2.02
+SLP_CALIBRATION_BMP390 = 0.42
+SLP_CALIBRATION_BME680 = 2.02
 # 7-Nov - mide afternoon
 INIT_SEA_LEVEL_PRESSURE = 1023.30
-SLP_BMP390_CALIBRATION = 0.8436
-SLP_BME680_CALIBRATION = 2.3768
+SLP_CALIBRATION_BMP390 = 0.8436
+SLP_CALIBRATION_BME680 = 2.3768
 
 #7-Nov - evening
 INIT_SEA_LEVEL_PRESSURE = 1022.50
-SLP_BMP390_CALIBRATION = 1.3307
-SLP_BME680_CALIBRATION = 2.8990
+SLP_CALIBRATION_BMP390 = 1.3307
+SLP_CALIBRATION_BME680 = 2.8990
 
 INIT_SEA_LEVEL_PRESSURE = 1022.30
-SLP_BMP390_CALIBRATION = 1.2690
-SLP_BME680_CALIBRATION = 2.8287
+SLP_CALIBRATION_BMP390 = 1.2690
+SLP_CALIBRATION_BME680 = 2.8287
 
 INIT_SEA_LEVEL_PRESSURE = 1022.80
-SLP_BMP390_CALIBRATION = 1.3036
-SLP_BME680_CALIBRATION = 2.8791
+SLP_CALIBRATION_BMP390 = 1.3036
+SLP_CALIBRATION_BME680 = 2.8791
 
 INIT_SEA_LEVEL_PRESSURE = 1022.90
-SLP_BMP390_CALIBRATION = 0.9745
-SLP_BME680_CALIBRATION = 2.4857
+SLP_CALIBRATION_BMP390 = 0.9745
+SLP_CALIBRATION_BME680 = 2.4857
 
-temp_f = None
-temp_c = None
-humidity = None
-iaq = None
+INIT_SEA_LEVEL_PRESSURE = 1023.20
+SLP_CALIBRATION_BMP390 = 0.9656
+SLP_CALIBRATION_BME680 = 2.5010
+
+# bmp.set_oversampling(4, 1) # pressure (2=std, 4=ultrahigh), temp (1=2x recomended, 3=8x?)
+
+INIT_SEA_LEVEL_PRESSURE = 1023.20
+SLP_CALIBRATION_BMP390 = 0.9205
+SLP_CALIBRATION_BME680 = 2.4285
+
+INIT_SEA_LEVEL_PRESSURE = 1022.40
+SLP_CALIBRATION_BMP390 = 0.6094
+SLP_CALIBRATION_BME680 = 2.0623
+
 warning_toggle = 0
 
 print("Starting...")
@@ -532,13 +535,20 @@ if debug:
     calibration_data = [bmp.get_calibration_data(index) for index in range(14)]
     print(f"Calibration data: {calibration_data}")
     print(f"Event: {bmp.get_event()}; Int status: {bmp.get_int_status()}; FIFO length: {bmp.get_fifo_length()}")    
-#Init for bmp390 continuous measurement mode before loop
-bmp.set_oversampling(2, 3)
+#Init bmp390 continuous measurement mode
+#bmp.set_oversampling(2, 3) # pressure (2=std, 4=ultrahigh), temp (1=2x reccomended, 3=8x?)
+
+# https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmp390-ds002.pdf
+# # ultra high
+# bmp.set_oversampling(4, 1) # pressure (2=std, 4=ultrahigh), temp (1=2x recommended, 3=8x?)
+# bmp.set_iir_filter(4)  # 4 is coef 7 IIR filter
+# high
+bmp.set_oversampling(3, 0) # pressure (2=std, 3=high), temp (0=1x recommended)
+bmp.set_iir_filter(2)  # 2 is coef 3 IIR filter
 bmp.set_sampling_period(5)
-bmp.set_iir_filter(2) 
 bmp.start_measurement(enable_press=True, enable_temp=True, mode=2)
 if debug:
-    print(f"pwr mode: {bmp.get_power_mode()}\n")
+    print(f"pwr mode(3=continuous): {bmp.get_power_mode(), }\n")
 
 # blank display
 oled.fill(0)
@@ -546,21 +556,20 @@ oled.text("Starting", 0, 0)
 oled.text("altimeter...", 0, 12)
 oled.show()
 
-slp_bmp390_hpa = INIT_SEA_LEVEL_PRESSURE + SLP_BMP390_CALIBRATION
-slp_bme680_hpa = INIT_SEA_LEVEL_PRESSURE + SLP_BME680_CALIBRATION
+slp_hpa_bmp390 = INIT_SEA_LEVEL_PRESSURE + SLP_CALIBRATION_BMP390
+slp_hpa_bme680 = INIT_SEA_LEVEL_PRESSURE + SLP_CALIBRATION_BME680
 print(f"Original sea level pressure = {INIT_SEA_LEVEL_PRESSURE:.2f} hpa")
-print(f"Calibrated BMP390 Sea level = {slp_bmp390_hpa:.2f} hpa")
-print(f"Calibrated BME680 Sea level = {slp_bme680_hpa:.2f} hpa\n")
+print(f"Calibrated BMP390 Sea level = {slp_hpa_bmp390:.2f} hpa")
+print(f"Calibrated BME680 Sea level = {slp_hpa_bme680:.2f} hpa\n")
 
 if buzzer_sound: buzzer.on()
 zzz(.2)
 buzzer.off()
 
-print("start of main loop\n")
 # main loop
+print("start of main loop\n")
 first_run = True
 time_since_last_temp_update = time.ticks_ms()
-
 try:
     while True:
         dwell = DWELL_MS_LOOP
@@ -572,40 +581,57 @@ try:
         if button1():
             metric = not metric  # Toggle between metric and imperial units
 
-        # Button 2: Adjust alt or hpa to known pressure
+        # Button 2: Adjust altitude or sea level hpa to known values
         if button2():
             adjust_altitude_slp(True, bmp_update=True)
 
         #  * BME680 temp & humidity (189ms duration)
-        if first_run or elapsed_time > 3000:
+        if first_run or elapsed_time > 2000:
             dwell = DWELL_MS_LOOP - 189
             time_since_last_temp_update = time.ticks_ms()
 
-            # check for over temperature onboard pico
+            # Check for over temperature onboard pico
             temp = onboard_temperature()
             if temp > OVER_TEMP_WARNING:
                 print(f"WARNING: onboard Pico 2 temp = {temp:.1f}C")
                 
             # get bme680 sensor data
-            temp_c, humidity, pressure_hpa, iaq, altitude_m, error = bme680_sensor(slp_bme680_hpa)
-
-            if error:
-                print(f"No Altitude sensor: {error}")
-            else:
-                if debug: print(f"{temp_c=:.2f}")
-                temp_f = (temp_c * 9.0 / 5.0) + 32.0
+            temp_c_bme680,  humidity_bme680, hpa_bme680,  iaq_bme680,  alt_m_bme680, error_bme680  = bme680_sensor(slp_hpa_bme680)
+            if error_bme680:
+                print(f"No lower-precision Altitude BME680 sensor: {error_bme680}\n")
             first_run = False
             
             # get bmp390 sensor data, overwrite temp_c, temp_f, and altitude_m
-            t_c, p_hpa, alt_m, error = bmp390_sensor(slp_bmp390_hpa)
-            if error:
-                print(f"No high-precision Altitude sensor: {error}")
-            else:
-                if debug: print(f"{temp_c=:.2f}")
-                temp_c = t_c
-                temp_f = (temp_c * 9.0 / 5.0) + 32.0
-                altitude_m = alt_m
-                pressure_hpa = p_hpa
+            temp_c_bmp390, hpa_bmp390, alt_m_bmp390, error_bmp390 = bmp390_sensor(slp_hpa_bmp390)
+            if error_bmp390:
+                print(f"No high-precision Altitude BMP390 sensor: {error_bmp390}\n")
+            
+            temp_c, humidity, pressure_hpa, iaq, altitude_m, temp_f = (None,) * 6
+            
+            # Check if both sensors have errors, exit loop
+            if error_bme680 and error_bmp390:
+                oled.fill(0)
+                oled.text("Error", 0, 0, 1)
+                oled.fill_rect(0, 11, 128, 18, 1)
+                oled.text(f"No Alt Sensors:", 5, 12, 0)
+                oled.text(f"BMP390 & BME680", 5, 21, 0)
+                oled.show()  
+                break
+            
+            # Update BME680 data if available
+            if not error_bme680:
+                temp_c = temp_c_bme680
+                humidity = humidity_bme680
+                altitude_m = alt_m_bme680
+                pressure_hpa = hpa_bme680
+                iaq = iaq_bme680
+            
+            # Update BMP390 data if available and overwrite temperature and altitude
+            if not error_bmp390:
+                temp_c = temp_c_bmp390
+                altitude_m = alt_m_bmp390
+                pressure_hpa = hpa_bmp390               
+            temp_f = (temp_c * 9.0 / 5.0) + 32.0
             first_run = False
 
         # Every loop adjust for if sensor read
@@ -616,15 +642,11 @@ try:
             print(f"loop time with {dwell}ms delay={loop_elapsed_time}")
         
         # update display at uniform timing
-        if not error:
-#             display_environment(buzzer_sound)
-            display_big_num(buzzer_sound)
+        if show_env_details:
+            display_environment(buzzer_sound)
         else:
-            oled.fill(0)
-            oled.text("Error", 0, 0, 1)
-            oled.fill_rect(0, 11, 128, 9, 1)
-            oled.text(f"No Alt Sensor", 13, 12, 0)
-            oled.show()  
+            display_big_num(buzzer_sound)
+
 
 # if control-c at end clean up pico2
 except KeyboardInterrupt:
