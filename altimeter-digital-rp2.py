@@ -9,7 +9,7 @@
 #    - in/cm F/C changed with button #1
 #    - buttons debounced with efficient rp2 interrupts -- nice!
 #
-# Use nearest airport for sea level pessure
+# Use nearest airport for sea level pressure
 #    Portland updated hourly (7 min before the hour)
 #        https://www.weather.gov/wrh/timeseries?site=KPDX
 #
@@ -19,7 +19,7 @@
 #        correction: +77.9' or + 25.75m correction needed)
 #
 #    my garage is at <todo> feet elevation
-#        ~335 feet elevation, 102.11m  (26' lower than offie)
+#        ~335 feet elevation, 102.11m  (26' lower than office)
 #
 # Key links
 #     https://micropython.org/download/RPI_PICO2/ for latest .uf2 preview
@@ -29,13 +29,13 @@
 #    https://micropython-stubs.readthedocs.io/en/main/packages.html#mp-packages
 #
 # TODOs
-#  * fix adjust_altitude_slp(True, bmp_update=True) to update bme if bme exists
+#  * test error code of bmp & bme with either/both disconnected
 #  * add button #3 to switch between large font summary & detailed data
 #
 # by bradcar
 
 import time
-from math import log, floor
+from math import log
 from os import uname
 from sys import implementation
 from time import sleep as zzz
@@ -44,7 +44,7 @@ import bmp390
 from sensor_pack.bus_service import I2cAdapter
 from bme680 import BME680_I2C
 from framebuf import FrameBuffer, MONO_HLSB
-from machine import Pin, I2C, ADC
+from machine import Pin, I2C
 
 # Peter Hinch fonts: https://github.com/peterhinch/micropython-font-to-py
 # short_writer Code modified by: Charlotte Swift
@@ -72,7 +72,7 @@ button_2 = Pin(3, Pin.IN, Pin.PULL_UP)  # interrupt rear/front button pins
 # TODO Bluetooth?
 # Pin 4?, 5?
 
-rotary = RotaryIRQ(pin_num_clk=6, pin_num_dt=7, min_val=0, reverse=False, \
+rotary = RotaryIRQ(pin_num_clk=6, pin_num_dt=7, min_val=0, reverse=False,
                 range_mode=RotaryIRQ.RANGE_UNBOUNDED)
 rotary_switch = Pin(8, Pin.IN, Pin.PULL_UP)
 
@@ -93,9 +93,13 @@ led = Pin(25, Pin.OUT)
 i2c = I2C(id=1, scl=Pin(27), sda=Pin(26), freq=400_000)
 buzzer = Pin(28, Pin.OUT)
 
+error_bme680 = False
+error_bmp390 = False
 # BME690 #77 address by default, can change addr if SDO pin LOW = 0x76
-bme = BME680_I2C(i2c=i2c, address=0x77)
-bmp = bmp390.Bmp390(I2cAdapter(i2c), 0x76)
+try: bme = BME680_I2C(i2c=i2c, address=0x77)
+except: error_bme680 = True
+try: bmp = bmp390.Bmp390(I2cAdapter(i2c), 0x76)
+except: error_bmp390 = True
 
 oled_spi = machine.SPI(1)
 # print(f"oled_spi:{oled_spi}")
@@ -206,7 +210,7 @@ def calc_altitude(hpa, sea_level_pressure):
     formula from: https://cdn-shop.adafruit.com/datasheets/BST-BMP180-DS000-09.pdf
 
     :param hpa: current hpa pressure
-    :param sea_level_pressure: sea level hpa from closest airport
+    :param sea_level_pressure: sea level hpa from nearest airport
     :return: meters elevation
     """
     meters = 44330.0 * (1.0 - (hpa / sea_level_pressure) ** (1.0 / 5.255))
@@ -229,7 +233,7 @@ def bmp390_sensor(sea_level_pressure):
     temperature_ready, pressure_ready, cmd_ready = bmp.get_status()
     and wait for both pressure_ready  and  cmd_ready are true
 
-    :param sea_level_pressure: sea level hpa from closest airport
+    :param sea_level_pressure: sea level hpa from nearest airport
     :return: celsius, hpa_pressure, meters, error string
     """
     debug = True
@@ -252,12 +256,11 @@ def bmp390_sensor(sea_level_pressure):
         return None, None, None, "ERROR_BMP680:" + str(e)
 
     return celsius, hpa_pressure, meters, None
-    return
 
 
 def bme680_sensor(sea_level_pressure):
     """
-    read temp, humidity, pressure, Indoor Air Qualtiy (IAQ) from the BME680 sensor
+    read temp, humidity, pressure, Indoor Air Quality (IAQ) from the BME680 sensor
     measurement takes ~189ms
     
     Pressure accuracy:  +/-12 Pa, +/-1 meter
@@ -267,7 +270,7 @@ def bme680_sensor(sea_level_pressure):
     
     need 30min before can trust IAQ
 
-    :param sea_level_pressure: sea level hpa from closest airport
+    :param sea_level_pressure: sea level hpa from nearest airport
     :return: celsius, percent_humidity, hpa_pressure, iaq, meters, error string
     """
     debug = True
@@ -365,7 +368,7 @@ def display_big_num(buzz):
 def update_settings_display(alt, press):
     """
     update display as the new settings are updated. oled display of alt & press,
-    changes ot both altitude & presure hightlighted by white box/black letters
+    changes ot both altitude & pressure highlighted by white box/black letters
 
     :params alt: altitude in meters
     :params pressure: pressure in hpa
@@ -400,6 +403,7 @@ def adjust_altitude_slp(buzz, bmp_update):
     global metric, slp_hpa_bme680, slp_hpa_bmp390
     
     new_alt = altitude_m
+    new_slp = slp_hpa_bmp390 if bmp_update else slp_hpa_bme680
     print(f"Adjustment start: alt= {new_alt} m, {new_alt * 3.28084} ft")
     print(f"updating: {"bmp390" if bmp_update else "bme680"}")
     print(f"global slp values={slp_hpa_bmp390=}, {slp_hpa_bme680=}\n")
@@ -409,10 +413,10 @@ def adjust_altitude_slp(buzz, bmp_update):
         buzzer.off()
     update_settings_display(altitude_m, slp_hpa_bmp390 if bmp_update else slp_hpa_bme680)
 
-    #### Increment/decrement New Altitude in feet, calcule new sea level pressure
+    #### Increment/decrement New Altitude in feet, calculate new sea level pressure
     rotary_multiplier = 1
     rotary_old = rotary.value()
-    while (not button2()):
+    while not button2():
         
         # Button 1: toggle between cm/in
         if button1():
@@ -429,7 +433,7 @@ def adjust_altitude_slp(buzz, bmp_update):
                 continue
 
         if rotary_old != rotary_new:
-            # delta is how much chaned since last loop
+            # delta is how much changed since last loop
             delta = rotary_new - rotary_old 
             new_alt_feet = new_alt_feet + delta*rotary_multiplier
             rotary_old = rotary_new
@@ -473,43 +477,55 @@ debounce_1_time = 0
 debounce_2_time = 0
 
 # Sea level pressure adjustment is 0.03783 hPA per foot @ 365'
-SLP_CALIBRATION_BMP390 = 0.42
-SLP_CALIBRATION_BME680 = 2.02
-# 7-Nov - mide afternoon
-INIT_SEA_LEVEL_PRESSURE = 1023.30
-SLP_CALIBRATION_BMP390 = 0.8436
-SLP_CALIBRATION_BME680 = 2.3768
+# SLP_CALIBRATION_BMP390 = 0.42
+# SLP_CALIBRATION_BME680 = 2.02
+# # 7-Nov - mid afternoon
+# INIT_SEA_LEVEL_PRESSURE = 1023.30
+# SLP_CALIBRATION_BMP390 = 0.8436
+# SLP_CALIBRATION_BME680 = 2.3768
+# 
+# #7-Nov - evening
+# INIT_SEA_LEVEL_PRESSURE = 1022.50
+# SLP_CALIBRATION_BMP390 = 1.3307
+# SLP_CALIBRATION_BME680 = 2.8990
+# 
+# INIT_SEA_LEVEL_PRESSURE = 1022.30
+# SLP_CALIBRATION_BMP390 = 1.2690
+# SLP_CALIBRATION_BME680 = 2.8287
+# 
+# INIT_SEA_LEVEL_PRESSURE = 1022.80
+# SLP_CALIBRATION_BMP390 = 1.3036
+# SLP_CALIBRATION_BME680 = 2.8791
+# 
+# INIT_SEA_LEVEL_PRESSURE = 1022.90
+# SLP_CALIBRATION_BMP390 = 0.9745
+# SLP_CALIBRATION_BME680 = 2.4857
+# 
+# INIT_SEA_LEVEL_PRESSURE = 1023.20
+# SLP_CALIBRATION_BMP390 = 0.9656
+# SLP_CALIBRATION_BME680 = 2.5010
+# 
+# # bmp.set_oversampling(4, 1) # pressure (2=std, 4=ultrahigh), temp (1=2x recomended, 3=8x?)
+# 
+# INIT_SEA_LEVEL_PRESSURE = 1023.20
+# SLP_CALIBRATION_BMP390 = 0.9205
+# SLP_CALIBRATION_BME680 = 2.4285
+# 
+# INIT_SEA_LEVEL_PRESSURE = 1022.40
+# SLP_CALIBRATION_BMP390 = 0.6094
+# SLP_CALIBRATION_BME680 = 2.0623
+# 
+# INIT_SEA_LEVEL_PRESSURE = 1022.00
+# SLP_CALIBRATION_BMP390 = 1.0148
+# SLP_CALIBRATION_BME680 = 2.4430
+# 
+# INIT_SEA_LEVEL_PRESSURE = 1022.30
+# SLP_CALIBRATION_BMP390 = 0.5305
+# SLP_CALIBRATION_BME680 = 1.9789
 
-#7-Nov - evening
-INIT_SEA_LEVEL_PRESSURE = 1022.50
-SLP_CALIBRATION_BMP390 = 1.3307
-SLP_CALIBRATION_BME680 = 2.8990
-
-INIT_SEA_LEVEL_PRESSURE = 1022.30
-SLP_CALIBRATION_BMP390 = 1.2690
-SLP_CALIBRATION_BME680 = 2.8287
-
-INIT_SEA_LEVEL_PRESSURE = 1022.80
-SLP_CALIBRATION_BMP390 = 1.3036
-SLP_CALIBRATION_BME680 = 2.8791
-
-INIT_SEA_LEVEL_PRESSURE = 1022.90
-SLP_CALIBRATION_BMP390 = 0.9745
-SLP_CALIBRATION_BME680 = 2.4857
-
-INIT_SEA_LEVEL_PRESSURE = 1023.20
-SLP_CALIBRATION_BMP390 = 0.9656
-SLP_CALIBRATION_BME680 = 2.5010
-
-# bmp.set_oversampling(4, 1) # pressure (2=std, 4=ultrahigh), temp (1=2x recomended, 3=8x?)
-
-INIT_SEA_LEVEL_PRESSURE = 1023.20
-SLP_CALIBRATION_BMP390 = 0.9205
-SLP_CALIBRATION_BME680 = 2.4285
-
-INIT_SEA_LEVEL_PRESSURE = 1022.40
-SLP_CALIBRATION_BMP390 = 0.6094
-SLP_CALIBRATION_BME680 = 2.0623
+INIT_SEA_LEVEL_PRESSURE = 1020.70
+SLP_CALIBRATION_BMP390 = 0.3948
+SLP_CALIBRATION_BME680 = 1.8669
 
 warning_toggle = 0
 
@@ -527,27 +543,24 @@ else:
 print("====================================")
 print(f"oled_spi:{oled_spi}\n")
 
-# BMP390 setup
-if debug:
+# BMP390 setup for continuous measurement mode
+if debug and not error_bmp:
     print("BMP390 initialization value:")
     print(f"chip_id: {bmp.get_id()}")
     print(f"pwr mode: {bmp.get_power_mode()}")
     calibration_data = [bmp.get_calibration_data(index) for index in range(14)]
     print(f"Calibration data: {calibration_data}")
     print(f"Event: {bmp.get_event()}; Int status: {bmp.get_int_status()}; FIFO length: {bmp.get_fifo_length()}")    
-#Init bmp390 continuous measurement mode
-#bmp.set_oversampling(2, 3) # pressure (2=std, 4=ultrahigh), temp (1=2x reccomended, 3=8x?)
 
-# https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmp390-ds002.pdf
-# # ultra high
-# bmp.set_oversampling(4, 1) # pressure (2=std, 4=ultrahigh), temp (1=2x recommended, 3=8x?)
-# bmp.set_iir_filter(4)  # 4 is coef 7 IIR filter
-# high
-bmp.set_oversampling(3, 0) # pressure (2=std, 3=high), temp (0=1x recommended)
-bmp.set_iir_filter(2)  # 2 is coef 3 IIR filter
-bmp.set_sampling_period(5)
-bmp.start_measurement(enable_press=True, enable_temp=True, mode=2)
-if debug:
+    # https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmp390-ds002.pdf
+    # ultra-high
+#     bmp.set_oversampling(4, 1) # pressure (4=ultrahigh), temp (1=2x recommended)
+#     bmp.set_iir_filter(4)  # 4 is coef 7 IIR filter
+    # high
+    bmp.set_oversampling(3, 0) # pressure (2=std, 3=high), temp (0=1x recommended)
+    bmp.set_iir_filter(2)  # 2 is coef 3 IIR filter
+    bmp.set_sampling_period(5)
+    bmp.start_measurement(enable_press=True, enable_temp=True, mode=2)
     print(f"pwr mode(3=continuous): {bmp.get_power_mode(), }\n")
 
 # blank display
@@ -583,7 +596,7 @@ try:
 
         # Button 2: Adjust altitude or sea level hpa to known values
         if button2():
-            adjust_altitude_slp(True, bmp_update=True)
+            adjust_altitude_slp(True, bmp_update=not error_bmp390)
 
         #  * BME680 temp & humidity (189ms duration)
         if first_run or elapsed_time > 2000:
@@ -618,7 +631,7 @@ try:
                 oled.show()  
                 break
             
-            # Update BME680 data if available
+            # Update BME680 data, if available
             if not error_bme680:
                 temp_c = temp_c_bme680
                 humidity = humidity_bme680
@@ -626,7 +639,7 @@ try:
                 pressure_hpa = hpa_bme680
                 iaq = iaq_bme680
             
-            # Update BMP390 data if available and overwrite temperature and altitude
+            # Update BMP390 data, if available and overwrite temperature and altitude
             if not error_bmp390:
                 temp_c = temp_c_bmp390
                 altitude_m = alt_m_bmp390
