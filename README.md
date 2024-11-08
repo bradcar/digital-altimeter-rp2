@@ -15,13 +15,13 @@ Digital Altimeter with adjustments for known altitude/sea-level-pressure using R
 * https://github.com/bradcar/artcar-ultrasonic-dist-rp2
 
 ## Useful sites:
-* maybe going to use: Foriot's TXS0108E 8 Channel Level Converter Module to convert 5v Ultrasonic and SSD1309 to Support Pico 3.3V signals
-  * SSD1309 SDI is fast, so I need one that can keep up https://www.amazon.com/gp/product/B0CFL9KN7L
 * Powering Pico: https://www.youtube.com/watch?v=3PH9jzRsb5E -- feed, 5v for ultrasonics, and power in my car.
   * TODO get Buck converter 12v car to 5v (to usb-b or micro-usb)
   * For micro-USB and/or external power, best to have MosFET protection
     * recommended DMG-2305ux, but this is surface-mount MosFET
     * investigating RLB8721, that way can hook laptop up in car to update SW
+* maybe going to use: Foriot's TXS0108E 8 Channel Level Converter, 5v to Pico 3.3V signals if I use with fast SDI picked this https://www.amazon.com/gp/product/B0CFL9KN7L
+
    
 ## Project images:
 todo
@@ -30,6 +30,5 @@ todo
 * MicroPython Fonts:  https://github.com/peterhinch/micropython-font-to-py/tree/master -- Didn't use it for this project
  
 ## TODOs
-* Determine if SSD1309 should be run on 5v
 * Consider putting air quality status in tiny font
-* add button for details of all measurments
+* add 3rd button to show details of all measurments
