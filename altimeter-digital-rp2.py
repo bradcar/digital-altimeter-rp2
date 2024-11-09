@@ -29,7 +29,6 @@
 #
 # TODOs
 #  * test error code of bmp & bme with either/both disconnected
-#  * add button #3 to switch between large font summary & detailed data
 #
 # by bradcar
 
@@ -66,7 +65,9 @@ on_pico_temp = machine.ADC(4)
 # external pins
 uart0 = machine.UART(0, 115200, tx=Pin(0), rx=Pin(1))
 button_1 = Pin(2, Pin.IN, Pin.PULL_UP)  # interrupt cm/in button pins
-button_2 = Pin(3, Pin.IN, Pin.PULL_UP)  # interrupt rear/front button pins
+button_2 = Pin(3, Pin.IN, Pin.PULL_UP)  # interrupt set mew alt/pressure
+button_3 = Pin(15, Pin.IN, Pin.PULL_UP)  # interrupt detail or summary data
+
 
 # TODO Bluetooth?
 # Pin 4?, 5?
@@ -108,25 +109,28 @@ text_20px = Writer(oled,font_20px, verbose=False)
 
 # === Constants ====
 DWELL_MS_LOOP = 300
-PDX_SLP_1013 = 1009.90
 OVER_TEMP_WARNING = 70.0
 
 
 # Button debouncer with efficient interrupts, which don't take CPU cycles!
 # https://electrocredible.com/raspberry-pi-pico-external-interrupts-button-micropython/
 def callback(pin):
-    global button_1_pushed, button_2_pushed, debounce_1_time, debounce_2_time
+    global button_1_pushed, button_2_pushed, button_3_pushed
+    global debounce_1_time, debounce_2_time, debounce_3_time
     if pin == button_1 and (int(time.ticks_ms()) - debounce_1_time) > 500:
         button_1_pushed = True
         debounce_1_time = time.ticks_ms()
     elif pin == button_2 and (int(time.ticks_ms()) - debounce_2_time) > 500:
         button_2_pushed = True
         debounce_2_time = time.ticks_ms()
+    elif pin == button_3 and (int(time.ticks_ms()) - debounce_3_time) > 500:
+        button_3_pushed = True
+        debounce_3_time = time.ticks_ms()
 
 
 button_1.irq(trigger=Pin.IRQ_FALLING, handler=callback)
 button_2.irq(trigger=Pin.IRQ_FALLING, handler=callback)
-
+button_3.irq(trigger=Pin.IRQ_FALLING, handler=callback)
 
 # Functions =================================================
 
@@ -143,6 +147,14 @@ def button2():
     global button_2_pushed
     if button_2_pushed:
         button_2_pushed = False
+        return True
+    else:
+        return False
+    
+def button3():
+    global button_3_pushed
+    if button_3_pushed:
+        button_3_pushed = False
         return True
     else:
         return False
@@ -191,8 +203,6 @@ def calc_sea_level_pressure(hpa, meters):
 
     slightly different formula at:
        https://www.brisbanehotairballooning.com.au/pressure-and-altitude-conversion/
-       https://www.mide.com/air-pressure-at-altitude-calculator
-       https://www.omnicalculator.com/physics/air-pressure-at-altitude
        https://en.wikipedia.org/wiki/Barometric_formula
 
     :param hpa: current hpa pressure
@@ -223,6 +233,7 @@ def bmp390_sensor(sea_level_pressure):
     
     Driver code by 2022 Roman Shevchik
     https://github.com/octaprog7/BMP390
+    https://github.com/octaprog7/BMP390/discussions/3
     bmp390.py, sensor_pack/base_sensor.py, sensor_pack/bus_service.py
     
     Pressure accuracy:  +/-3 Pa, +/-0.25 meters
@@ -297,10 +308,9 @@ def bme680_sensor(sea_level_pressure):
     return celsius, percent_humidity, hpa_pressure, iaq_value, meters, None
 
 
-def display_environment(buzz):
+def display_details(buzz):
     """
-    display just environment readings & car image(for fun)
-    No need to oled.fill(0) before or oled.show() after call
+    display all measurement details in a standard font to the OLED
 
     param:buzz:  distance if dist = -1.0 then display error
     """
@@ -329,8 +339,7 @@ def display_environment(buzz):
 
 def display_big_num(buzz):
     """
-    display just alt & hpa readings
-    No need to oled.fill(0) before or oled.show() after call
+    display just alt & hpa readings in a big font to the OLED
 
     param:buzz:  distance if dist = -1.0 then display error
     """
@@ -472,8 +481,10 @@ debug = False
 
 button_1_pushed = False
 button_2_pushed = False
+button_3_pushed = False
 debounce_1_time = 0
 debounce_2_time = 0
+debounce_3_time = 0
 
 # Sea level pressure adjustment is 0.03783 hPA per foot @ 365'
 # SLP_CALIBRATION_BMP390 = 0.42
@@ -521,10 +532,18 @@ debounce_2_time = 0
 # INIT_SEA_LEVEL_PRESSURE = 1022.30
 # SLP_CALIBRATION_BMP390 = 0.5305
 # SLP_CALIBRATION_BME680 = 1.9789
+# 
+# INIT_SEA_LEVEL_PRESSURE = 1020.70
+# SLP_CALIBRATION_BMP390 = 0.3948
+# SLP_CALIBRATION_BME680 = 1.8669
 
-INIT_SEA_LEVEL_PRESSURE = 1020.70
-SLP_CALIBRATION_BMP390 = 0.3948
-SLP_CALIBRATION_BME680 = 1.8669
+# INIT_SEA_LEVEL_PRESSURE = 1017.70
+# SLP_CALIBRATION_BMP390 = 1.1712
+# SLP_CALIBRATION_BME680 = 2.6701
+
+INIT_SEA_LEVEL_PRESSURE = 1017.40
+SLP_CALIBRATION_BMP390 = 0.6595
+SLP_CALIBRATION_BME680 = 2.1152
 
 warning_toggle = 0
 
@@ -555,11 +574,11 @@ if debug and not error_bmp390:
 if not error_bmp390:
     # https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmp390-ds002.pdf
     # ultra-high
-#     bmp.set_oversampling(4, 1) # pressure (4=ultrahigh), temp (1=2x recommended)
-#     bmp.set_iir_filter(4)  # 4 is coef 7 IIR filter
+    bmp.set_oversampling(4, 1) # pressure (4=ultrahigh), temp (1=2x recommended)
+    bmp.set_iir_filter(4)  # 4 is coef 7 IIR filter
     # high
-    bmp.set_oversampling(3, 0) # pressure (2=std, 3=high), temp (0=1x recommended)
-    bmp.set_iir_filter(2)  # 2 is coef 3 IIR filter
+#     bmp.set_oversampling(3, 0) # pressure (2=std, 3=high), temp (0=1x recommended)
+#     bmp.set_iir_filter(2)  # 2 is coef 3 IIR filter
     bmp.set_sampling_period(5)
     bmp.start_measurement(enable_press=True, enable_temp=True, mode=2)
     print(f"pwr mode(3=continuous): {bmp.get_power_mode(), }\n")
@@ -598,6 +617,10 @@ try:
         # Button 2: Adjust altitude or sea level hpa to known values
         if button2():
             adjust_altitude_slp(True, bmp_update=not error_bmp390)
+        
+        # Button 3: detail/Summary
+        if button3():
+            show_env_details = not show_env_details  # Toggle between summary & details
 
         #  * BME680 temp & humidity (189ms duration)
         if first_run or elapsed_time > 2000:
@@ -657,7 +680,7 @@ try:
         
         # update display at uniform timing
         if show_env_details:
-            display_environment(buzzer_sound)
+            display_details(buzzer_sound)
         else:
             display_big_num(buzzer_sound)
 
