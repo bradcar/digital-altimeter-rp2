@@ -381,20 +381,29 @@ def update_settings_display(alt, press):
     :params alt: altitude in meters
     :params pressure: pressure in hpa
     """
+    
+    # invert display during adjustments
     oled.fill(0)
-    oled.text(f"adjusting...", 0, 0)
+    oled.invert(1)      # display inverted
+    oled.text("Setting Alt...", 0, 0)
+    
+    # adjust alt in feet or meters
     if metric:
-        string = f"{alt:.0f}m"
+        chars = " m"
+        convert = 1.0
     else:
-        string = f"{alt * 3.28084:.0f}\'"
-    oled.text(f"Alt = ", 0, 20, 1)
-    oled.fill_rect(45, 19, 128 - 45, 9, 1)
-    oled.text(f"{string}", 45, 20, 0)
-
-    string = f"{press:.1f} hpa"
-    oled.text(f"Sea = ", 0, 36, 1)
-    oled.fill_rect(45, 35, 128 - 45, 9, 1)
-    oled.text(f"{string}", 45, 36, 0)
+        chars = "\'"
+        convert = 3.28084
+    oled.text("new", 16, 15)   
+    oled.text("Alt", 16, 24)
+    text_20px.set_textpos(49, 15)
+    text_20px.printstring(f"{(alt*convert):.0f}{chars}") #10px per char? variable space width
+    
+    # adjust pressure in hpa only
+    oled.text("new", 16, 38)
+    oled.text("hPA", 16, 47)
+    text_20px.set_textpos(52, 38)
+    text_20px.printstring(f"{press:.1f}") #10px per char? variable space width
     oled.show()
     return
 
@@ -469,6 +478,9 @@ def adjust_altitude_slp(buzz, bmp_update):
         slp_hpa_bme680 = new_slp
         print(f"updated: bme680")
     print(f"{new_slp=}, {slp_hpa_bmp390=}, {slp_hpa_bme680=}\n")
+    oled.invert(0)      # turn off inverted display inverted
+    oled.fill(0)        # blank screen black to have clean visual exit
+    oled.show()
     return
 
 
@@ -540,10 +552,14 @@ debounce_3_time = 0
 # INIT_SEA_LEVEL_PRESSURE = 1017.70
 # SLP_CALIBRATION_BMP390 = 1.1712
 # SLP_CALIBRATION_BME680 = 2.6701
+# 
+# INIT_SEA_LEVEL_PRESSURE = 1017.40
+# SLP_CALIBRATION_BMP390 = 0.6595
+# SLP_CALIBRATION_BME680 = 2.1152
 
-INIT_SEA_LEVEL_PRESSURE = 1017.40
-SLP_CALIBRATION_BMP390 = 0.6595
-SLP_CALIBRATION_BME680 = 2.1152
+INIT_SEA_LEVEL_PRESSURE = 1015.40
+SLP_CALIBRATION_BMP390 = 1.3359
+SLP_CALIBRATION_BME680 = 2.7351
 
 warning_toggle = 0
 
