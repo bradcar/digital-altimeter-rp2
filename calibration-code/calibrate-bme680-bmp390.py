@@ -289,7 +289,7 @@ debug = False
 # Sea level pressure adjustment is 0.03783 hPA per foot @ 365'
 SLP_CALIBRATION_BMP390 = 0.42
 SLP_BME680_CALIBRATION = 2.02 
-INIT_SEA_LEVEL_PRESSURE =1022.40
+INIT_SEA_LEVEL_PRESSURE = 1015.40
 
 temp_f = None
 temp_c = None
