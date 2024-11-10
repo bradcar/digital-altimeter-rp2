@@ -18,7 +18,7 @@ from time import sleep
 import BME280
 
 # Initialize I2C communication
-i2c = I2C(id=1,  sda=Pin(26), scl=Pin(27), freq=10000)
+i2c = I2C(id=1, scl=Pin(19), sda=Pin(18), freq=10000)
 
 debug = False
 
@@ -59,7 +59,7 @@ while True:
         # https://community.bosch-sensortec.com/t5/Question-and-answers/How-to-calculate-the-altitude-from-the-pressure-sensor-data/qaq-p/5702
         # https://www.weather.gov/wrh/timeseries?site=KPDX
         # hPa = mB
-        sea_level_pressure_hpa = 1011.20
+        sea_level_pressure_hpa = 1017.40
         
         # Read sensor data
         temperature_c, humidity, pressure_hpa, altitude_m, _ = bme_temp_humidity_altitude(sea_level_pressure_hpa)        
