@@ -9,7 +9,7 @@ Digital Altimeter with adjustments for known altitude/sea-level-pressure using R
 * SSD1309 (SDI) - uses SSD1306 SW, both SDI & I2C code - SDI is faster
   * ssd1306 Framebuffer-based SW for printing text & blit of bitmap images
 * button debounce that uses efficient interrupt code (does not use CPU cycles to spin/wait on button debounce, yay!)
-  * three buttons (1. set/adjust alt/slp, 2. F/C, 3. detail summary data)
+  * Has 3 buttons (1. set/adjust alt/sea-level-pressure, 2. F/Celsius, 3. Big Font Summary or detail summary in small font)
 * Temperature from on-board RP2350 (no external pins, ADC4)
 
 ## Useful sites:
