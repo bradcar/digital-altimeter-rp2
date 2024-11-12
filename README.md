@@ -8,7 +8,8 @@ Digital Altimeter with adjustments for known altitude/sea-level-pressure using R
 * BME680 (I2C1 #77 addr) - for inside temp & humidity, air pressure, air quality, and altitude.
 * SSD1309 (SDI) - uses SSD1306 SW, both SDI & I2C code - SDI is faster
   * ssd1306 Framebuffer-based SW for printing text & blit of bitmap images
-* button debounce that uses efficient interrupt code (does not use CPU cycles with sleep, yay!)
+* button debounce that uses efficient interrupt code (does not use CPU cycles to spin/wait on button debounce, yay!)
+  * Has 3 buttons (1. set/adjust alt/sea-level-pressure, 2. F/Celsius, 3. Big Font Summary or detail summary in small font)
 * Temperature from on-board RP2350 (no external pins, ADC4)
 
 ## Useful sites:
@@ -30,5 +31,4 @@ todo
 * BMP390 driver code I'm using: https://github.com/octaprog7/BMP390
  
 ## TODOs
-* Consider putting air quality status in tiny font
-* add 3rd button to show details of all measurments
+* ?
