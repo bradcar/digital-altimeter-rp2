@@ -287,9 +287,9 @@ buzzer_sound = True
 debug = False
 
 # Sea level pressure adjustment is 0.03783 hPA per foot @ 365'
-SLP_CALIBRATION_BMP390 = 0.42
-SLP_BME680_CALIBRATION = 2.02 
-INIT_SEA_LEVEL_PRESSURE = 1015.40
+SLP_CALIBRATION_BMP390 = 0.6613
+SLP_CALIBRATION_BME680 = 2.1240
+INIT_SEA_LEVEL_PRESSURE = 1010.70
 
 temp_f = None
 temp_c = None
@@ -335,9 +335,10 @@ slp_hpa_bmp390 = INIT_SEA_LEVEL_PRESSURE
 slp_hpa_bme680 = INIT_SEA_LEVEL_PRESSURE
 
 print("start of main loop\n")
+loop = True
 # main loop
 try:
-    while True:             
+    while loop:             
         # get bmp390 sensor data, overwrite temp_c, temp_f, and altitude_m
         temp_c_bmp390, hpa_bmp390, alt_m_bmp390, error_bmp390 = bmp390_sensor(slp_hpa_bmp390)
         if error_bmp390:
@@ -364,7 +365,33 @@ try:
         print(f"SLP_CALIBRATION_BMP390 = {hpa_adj_bmp390:.4f}")
         print(f"SLP_CALIBRATION_BME680 = {hpa_adj_bme680:.4f}\n")
         
-        _ = input("Enter for next loop: ")
+        oled.fill(0)
+        oled.text("Calibrations", 0, 0)
+        oled.text(f"init SLP={INIT_SEA_LEVEL_PRESSURE:.2f}", 8, 10)
+        oled.text(f"adj feet={adjust_to_feet:.0f}", 8, 20)
+
+        oled.text(f"Corrections:", 0, 32)
+        oled.text(f"BMP390 = {hpa_adj_bmp390:.4f}", 8, 42)
+        oled.text(f"BME680 = {hpa_adj_bme680:.4f}", 8, 52)
+        oled.show()
+        
+        next_op = input("Enter for next loop [plot - to plot accuracy: ")
+        if next_op == "plot":
+            init_slp = INIT_SEA_LEVEL_PRESSURE
+            
+            adjust_to_feet = 365
+            adjust_to_meters = adjust_to_feet / 3.28084
+            
+            # loop to iterate in floating-point steps
+            start = 1001.5
+            end = 1003.5
+            step = 0.1
+            for value in range(int(start * 10), int(end * 10) + 1, int(step * 10)):
+                dev_hpa = value / 10.0
+                
+                hpa_adj = calc_sea_level_pressure(dev_hpa, adjust_to_meters) - init_slp 
+                print(f"{init_slp=}, {dev_hpa=}, {hpa_adj=}")
+            loop = False
 
         # Every loop adjust for if sensor read
         led.toggle()
