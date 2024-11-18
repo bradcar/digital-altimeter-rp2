@@ -1,5 +1,5 @@
 # digital-altimeter-rp2
-Digital Altimeter with adjustments for known altitude/sea-level-pressure using Raspberry Pi Pico2 with BMP390, BME680, OLED Display
+Digital Altimeter with adjustments for known altitude/sea-level-pressure using Raspberry Pi Pico2 with BMP581(or BM390), BME680, OLED Display
 
 ## Features of this Raspberry Pi Pico 2 code:
 * BMP581 (I2C1 #47 addr) - latest generation highly accurate air pressure, temp, and altitude.
@@ -8,6 +8,7 @@ Digital Altimeter with adjustments for known altitude/sea-level-pressure using R
     * https://github.com/bradcar/MicroPython_BMP58x
   * BMP581 is on the same I2C bus as BME680
 * BME680 (I2C1 #77 addr) - for inside temp & humidity, air pressure, air quality, and altitude.
+* Large 20px fonts.
 * SSD1309 (SDI) - uses SSD1306 SW, both SDI & I2C code - SDI is faster
   * ssd1306 Framebuffer-based SW for printing text & blit of bitmap images
 * button debounce that uses efficient interrupt code (does not use CPU cycles to spin/wait on button debounce, yay!)
@@ -25,7 +26,6 @@ Deprecated but easy to switch back to:
   * For micro-USB and/or external power, best to have MosFET protection
     * recommended DMG-2305ux, but this is surface-mount MosFET
     * investigating RLB8721, that way can hook laptop up in car to update SW
-* maybe going to use Foriot's TXS0108E 8 Channel Level Converter, 5v to Pico 3.3V signals, high speed converter (SDI) https://www.amazon.com/gp/product/B0CFL9KN7L
 
 ## Project images:
 todo
