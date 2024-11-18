@@ -2,7 +2,7 @@
 Digital Altimeter with adjustments for known altitude/sea-level-pressure using Raspberry Pi Pico2 with BMP390, BME680, OLED Display
 
 ## Features of this Raspberry Pi Pico 2 code:
-* BMP581 (I2C1 #47 addr) - latest generation highly accurate air pressure, altitude.
+* BMP581 (I2C1 #47 addr) - latest generation highly accurate air pressure, temp, and altitude.
   * used as primary sensor for air pressure and altitude
   * now uses my driver code for quick switch between bmp585, bmp581, bmp390
     * https://github.com/bradcar/MicroPython_BMP58x
@@ -15,7 +15,7 @@ Digital Altimeter with adjustments for known altitude/sea-level-pressure using R
 * Temperature from on-board RP2350 (no external pins, ADC4)
 
 Deprecated but easy to switch back to:
-* BMP390 (I2C1 #76 addr) - highly accurate air pressure, altitude.
+* BMP390 (I2C1 #76 addr) - previous generation air pressure, temp, and altitude.
   * used as primary sensor for air pressure and altitude
   * on same I2C bus as BME680, solder bump on sensor makes it #76 addr to have code address it distictly from bme680
 
