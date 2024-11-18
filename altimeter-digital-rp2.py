@@ -29,6 +29,17 @@
 #
 # TODOs
 #  * test error code of bmp & bme with either/both disconnected
+#  * create known altitudes display
+#     oled.fill(0)
+#     oled.text("Oregon Altitudes", 0, 0)
+#     oled.text("Garage:    339\'", 4, 9)
+#     oled.text("Sylvan:    761\'", 4, 18)
+#     oled.text("MHM Main: 5003\'", 4, 27)
+#     oled.text("MHM HRM:  4540\'", 4, 36)
+#     oled.text("BachMain: 6207\'", 4, 45)
+#     oled.text("PDX13 wk:  122\'", 4, 54)
+#     oled.show()
+#     zzz(5)
 #
 # by bradcar
 
@@ -96,10 +107,17 @@ buzzer = Pin(28, Pin.OUT)
 error_bme680 = False
 error_bmp390 = False
 # BME690 #77 address by default, can change addr if SDO pin LOW = 0x76
+
+# Addr 0x47 - should be for 585  TODO ???
+
 try: bme = BME680_I2C(i2c=i2c, address=0x77)
-except: error_bme680 = True
+except:
+    error_bme680 = True
+    print("ERROR: init BME680_I2C(i2c=i2c, address=0x77)")
 try: bmp = bmp390.Bmp390(I2cAdapter(i2c), 0x76)
-except: error_bmp390 = True
+except:
+    error_bmp390 = True
+    print("ERROR: init bmp390.Bmp390(I2cAdapter(i2c), 0x76)")
 
 oled_spi = machine.SPI(1)
 # print(f"oled_spi:{oled_spi}")
@@ -258,9 +276,9 @@ def bmp390_sensor(sea_level_pressure):
         meters = calc_altitude(hpa_pressure, sea_level_pressure)
 
         if debug:
-#             print(f"BMP390 Temp °C = {celsius:.2f} C")
-#             print(f"BMP390 Pressure = {hpa_pressure:.2f} hPA")
-            print(f"BMP390 Alt = {meters * 3.28084:.2f} feet")
+            print(f"BMP390 Temp °C = {celsius:.2f} C")
+            print(f"BMP390 Pressure = {hpa_pressure:.2f} hPA")
+            print(f"BMP390 Alt = {meters * 3.28084:.2f} feet\n")
 
     except OSError as e:
         print("BMP390: Failed to read sensor.")
@@ -284,6 +302,7 @@ def bme680_sensor(sea_level_pressure):
     :param sea_level_pressure: sea level hpa from nearest airport
     :return: celsius, percent_humidity, hpa_pressure, iaq, meters, error string
     """
+    debug = True
     try:
         celsius = bme.temperature
         percent_humidity = bme.humidity
@@ -299,7 +318,7 @@ def bme680_sensor(sea_level_pressure):
             print(f"BME680 Humidity = {percent_humidity:.1f} %")
             print(f"BME680 Pressure = {hpa_pressure:.2f} hPA")
             print(f"BME680 iaq = {iaq_value:.1f} {iaq_quality(iaq_value)}")
-            print(f"BME680 Alt = {meters * 3.28084:.2f} feet")
+            print(f"BME680 Alt = {meters * 3.28084:.2f} feet\n")
 
     except OSError as e:
         print("BME680: Failed to read sensor.")
@@ -356,14 +375,14 @@ def display_big_num(buzz):
     
     # display pressure in hpa only
     if metric:
-        chars = " m"
+        unit = " m"
         convert = 1.0
     else:
-        chars = "\'"
+        unit = "\'"
         convert = 3.28084
     oled.text("Alt", 16, 20)
     text_20px.set_textpos(49, 15)
-    text_20px.printstring(f"{(altitude_m*convert):.0f}{chars}") #10px per char? variable space width
+    text_20px.printstring(f"{(altitude_m*convert):.0f}{unit}") #10px per char? variable space width
     
     # display pressure in hpa only
     oled.text("hPA", 16, 43)
@@ -389,15 +408,15 @@ def update_settings_display(alt, press):
     
     # adjust alt in feet or meters
     if metric:
-        chars = " m"
+        unit = " m"
         convert = 1.0
     else:
-        chars = "\'"
+        unit = "\'"
         convert = 3.28084
     oled.text("new", 16, 15)   
     oled.text("Alt", 16, 24)
     text_20px.set_textpos(49, 15)
-    text_20px.printstring(f"{(alt*convert):.0f}{chars}") #10px per char? variable space width
+    text_20px.printstring(f"{(alt*convert):.0f}{unit}") #10px per char? variable space width
     
     # adjust/display pressure in hpa only
     oled.text("Sea", 16, 38)
@@ -425,7 +444,7 @@ def adjust_altitude_slp(buzz, bmp_update):
         new_slp = slp_hpa_bmp390 - adjust
     else:
         adjust = SLP_CALIBRATION_BME680
-        new_slp = slp_hpa_bme680 - adjus
+        new_slp = slp_hpa_bme680 - adjust
 
     print(f"Adjustment start: alt= {new_alt} m, {new_alt * 3.28084} ft")
     print(f"global slp values={slp_hpa_bmp390=}, {slp_hpa_bme680=}\n")
@@ -467,7 +486,7 @@ def adjust_altitude_slp(buzz, bmp_update):
         new_alt = new_alt_feet / 3.28084
         new_slp = calc_sea_level_pressure(pressure_hpa, new_alt) - adjust
         if debug:
-            print (f"{new_alt=}, {new_alt_feet=}")
+            print(f"{new_alt=}, {new_alt_feet=}")
             print(f"updating: {"bmp390" if bmp_update else "bme680"}")
             print(f"{new_slp=}, {slp_hpa_bmp390=}, {slp_hpa_bme680=}")
         update_settings_display(new_alt, new_slp)
@@ -481,6 +500,10 @@ def adjust_altitude_slp(buzz, bmp_update):
     sea_level_pressure = new_slp
     print(f"Adjustment end:   alt= {new_alt} m, {new_alt * 3.28084} ft")
     print(f"At End: {new_slp=}\n")
+    
+    data_file = open("last-sea-level-pressure.txt", "w")
+    data_file.write(f"{new_slp}")
+    data_file.close
     
     oled.invert(0)      # turn off inverted display inverted
     oled.fill(0)        # blank screen black to have clean visual exit
@@ -581,9 +604,17 @@ debounce_3_time = 0
 # SLP_CALIBRATION_BMP390 = 1.6135
 # SLP_CALIBRATION_BME680 = 3.0731
 
-INIT_SEA_LEVEL_PRESSURE = 1010.70
-SLP_CALIBRATION_BMP390 = 1.2523
-SLP_CALIBRATION_BME680 = 2.6794
+# INIT_SEA_LEVEL_PRESSURE = 1010.70
+# SLP_CALIBRATION_BMP390 = 1.2523
+# SLP_CALIBRATION_BME680 = 2.6794
+# 
+# INIT_SEA_LEVEL_PRESSURE = 1012.10
+# SLP_CALIBRATION_BMP390 = 1.4161
+# SLP_CALIBRATION_BME680 = 2.8652
+
+INIT_SEA_LEVEL_PRESSURE = 1013.70
+SLP_CALIBRATION_BMP390 = 0.0746
+SLP_CALIBRATION_BME680 = 1.6455
 
 warning_toggle = 0
 
@@ -601,14 +632,13 @@ else:
 print("====================================")
 print(f"oled_spi:{oled_spi}\n")
 
+debug = True
 # BMP390 configuration debug 
 if debug and not error_bmp390:
     print("BMP390 initialization value:")
     print(f"chip_id: {bmp.get_id()}")
     print(f"pwr mode: {bmp.get_power_mode()}")
-    calibration_data = [bmp.get_calibration_data(index) for index in range(14)]
-    print(f"Calibration data: {calibration_data}")
-    print(f"Event: {bmp.get_event()}; Int status: {bmp.get_int_status()}; FIFO length: {bmp.get_fifo_length()}")    
+debug = False
 
 # initialize BMP390 for continuous measurement mode
 if not error_bmp390:
@@ -625,20 +655,44 @@ if not error_bmp390:
     bmp.set_sampling_period(5)
     bmp.start_measurement(enable_press=True, enable_temp=True, mode=2)
     print(f"pwr mode(3=continuous): {bmp.get_power_mode(), }\n")
-
+    
 # blank display
 oled.fill(0)
 oled.text("Starting", 0, 0)
 oled.text("altimeter...", 0, 12)
 oled.show()
 
-sea_level_pressure = INIT_SEA_LEVEL_PRESSURE
+
+
+try:
+    data_file = open("last-sea-level-pressure.txt", "r")
+    sea_level_pressure = float(data_file.read())
+    data_file.close
+    print(f"Using previous sea level pressure = {sea_level_pressure}")
+except:
+    sea_level_pressure = INIT_SEA_LEVEL_PRESSURE
+    print(f"Using program sea level pressure in constant ={sea_level_pressure}")
+    
 slp_hpa_bmp390 = sea_level_pressure + SLP_CALIBRATION_BMP390
 slp_hpa_bme680 = sea_level_pressure + SLP_CALIBRATION_BME680
 
 if buzzer_sound: buzzer.on()
 zzz(.2)
 buzzer.off()
+
+oled.fill(0)
+oled.text("Oregon Altitudes", 0, 0)
+oled.text("Garage:    339\'", 4, 9)
+oled.text("Sylvan:    761\'", 4, 18)
+oled.text("MHM Main: 5003\'", 4, 27)
+# https://www.freemaptools.com/elevation-finder.htm says main lot 5310
+oled.text("MHM HRM:  4540\'", 4, 36)
+oled.text("BachMain: 6207\'", 4, 45)
+# https://www.freemaptools.com/elevation-finder.htm says main lot 6340
+oled.text("PDX13 wk:  122\'", 4, 54)
+oled.show()
+zzz(5)
+
 
 # main loop
 print("start of main loop\n")
