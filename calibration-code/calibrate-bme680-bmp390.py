@@ -40,12 +40,10 @@ from os import uname
 from sys import implementation
 from time import sleep as zzz
 
-import bmp390
-from sensor_pack.bus_service import I2cAdapter
+from micropython_bmp58x import bmp58x
 from bme680 import BME680_I2C
 from framebuf import FrameBuffer, MONO_HLSB
 from machine import Pin, I2C, ADC
-
 
 # ic2
 # from ssd1306 import SSD1306_I2C
@@ -81,7 +79,7 @@ buzzer = Pin(28, Pin.OUT)
 
 # BME690 #77 address by default, can change addr if SDO pin LOW = 0x76
 bme = BME680_I2C(i2c=i2c, address=0x77)
-bmp = bmp390.Bmp390(I2cAdapter(i2c), 0x76)
+bmp = bmp58x.BMP581(i2c=i2c, address=0x47)
 
 oled_spi = machine.SPI(1)
 # print(f"oled_spi:{oled_spi}")
@@ -184,8 +182,9 @@ def bmp390_sensor(sea_level_pressure):
     try:
         # note: we are not certain that the values have be updated, OK for this app
         # call temp before pressure - don't know why
-        celsius = bmp.get_temperature()
-        hpa_pressure = bmp.get_pressure() / 100.0
+        
+        celsius = bmp.temperature
+        hpa_pressure = bmp.pressure
 
         # derive altitude from pressure & sea level pressure
         #    meters = 44330.0 * (1.0 - (hpa_pressure/sea_level)**(1.0/5.255) )
@@ -279,8 +278,6 @@ def display_environment(buzz):
     return
 
 
-
-
 # =========================  startup code =========================
 show_env = True
 buzzer_sound = True
@@ -317,13 +314,11 @@ if debug:
     calibration_data = [bmp.get_calibration_data(index) for index in range(14)]
     print(f"Calibration data: {calibration_data}")
     print(f"Event: {bmp.get_event()}; Int status: {bmp.get_int_status()}; FIFO length: {bmp.get_fifo_length()}")    
+
 #Init for bmp390 continuous measurement mode before loop
-bmp.set_oversampling(2, 3)
-bmp.set_sampling_period(5)
-bmp.set_iir_filter(2) 
-bmp.start_measurement(enable_press=True, enable_temp=True, mode=2)
-if debug:
-    print(f"pwr mode: {bmp.get_power_mode()}")
+bmp.pressure_oversample_rate = bmp.OSR128
+bmp.temperature_oversample_rate = bmp.OSR8
+print(f"Current bmp390 Power mode setting: {bmp.power_mode}\n")
 
 # blank display
 oled.fill(0)
