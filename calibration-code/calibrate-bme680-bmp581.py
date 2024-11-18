@@ -1,11 +1,11 @@
 # Raspberry Pi Pico 2: calibrate sensors - Nov 2024
 #
 # Sensors used
-#    - BMP390 previous generation pressure & altitude
-#    - BME680 temp, humidity, pressure, IAQ, altitude
 #    - BMP581 highly accurate pressure & altitude
-#      - change: bmp = bmp58x.BMP390(i2c=i2c, address=0x7e)
-#      - to....: bmp = bmp58x.BMP581(i2c=i2c, address=0x47)
+#    - BME680 temp, humidity, pressure, IAQ, altitude
+#    - BMP581 previous generation pressure & altitude
+#      - change: bmp = bmp58x.BMP581(i2c=i2c, address=0x47)
+#        to....: bmp = bmp58x.BMP581(i2c=i2c, address=0x7e)
 #
 # Use nearest airport for sea level pessure
 #    Portland updated hourly (7 min before the hour)
@@ -27,9 +27,9 @@
 #    https://micropython-stubs.readthedocs.io/en/main/packages.html#mp-packages
 #
 # TODOs
-#  * right not if bmp390 exists it just overwrite bme680 temp & humidity, need
+#  * right not if bmp581 exists it just overwrite bme680 temp & humidity, need
 #    to plan logic if one or the other don't exist
-#  * ERROR adjust_altitude_slp still uses altitude_m and pressure_hpa from bmp390
+#  * ERROR adjust_altitude_slp still uses altitude_m and pressure_hpa from bmp581
 #          so doesn't really get bme680 adjusted correctly
 #  * add button #3 to switch between large font summary & detailed data
 #  
@@ -81,7 +81,7 @@ buzzer = Pin(28, Pin.OUT)
 
 # BME690 #77 address by default, can change addr if SDO pin LOW = 0x76
 bme = BME680_I2C(i2c=i2c, address=0x77)
-bmp = bmp58x.BMP390(i2c=i2c, address=0x7e)
+bmp = bmp58x.BMP581(i2c=i2c, address=0x47)
 
 oled_spi = machine.SPI(1)
 # print(f"oled_spi:{oled_spi}")
@@ -162,29 +162,21 @@ def calc_altitude(hpa, sea_level_pressure):
     return meters
 
 
-def bmp390_sensor(sea_level_pressure):
+def bmp581_sensor(sea_level_pressure):
     """
-    read temp, pressure from the bmp390 sensor
-    measurement takes ~??? ms
+    read temp, pressure from the bmp581 sensor
     
-    Driver code by 2022 Roman Shevchik   goctaprog@gmail.com
-    bmp390.py, sensor_pack/base_sensor.py, sensor_pack/bus_service.py
+    Driver code by 2024 Brad Carlile  bmp585, bmp581, bmp581
+    MicroPython_BMP58x: https://github.com/bradcar/MicroPython_BMP58x
     
     Pressure accuracy:  +/-3 Pa, +/-0.25 meters
-    
-    note: we are not certain that the values have be updated, OK for this app
-    to check that need
-    temperature_ready, pressure_ready, cmd_ready = bmp.get_status()
-    and wait for both pressure_ready  and  cmd_ready are true
 
     :param sea_level_pressure: sea level hpa from closest airport
     :return: celsius, hpa_pressure, meters, error string
     """
     debug = True
     try:
-        # note: we are not certain that the values have be updated, OK for this app
-        # call temp before pressure - don't know why
-        
+        # get temp & pressure  
         celsius = bmp.temperature
         hpa_pressure = bmp.pressure
 
@@ -193,12 +185,12 @@ def bmp390_sensor(sea_level_pressure):
         meters = calc_altitude(hpa_pressure, sea_level_pressure)
 
         if debug:
-            print(f"BMP390 Temp °C = {celsius:.2f} C")
-            print(f"BMP390 Pressure = {hpa_pressure:.2f} hPA")
-            print(f"BMP390 Alt = {meters * 3.28084:.2f} feet \n")
+            print(f"BMP581 Temp °C = {celsius:.2f} C")
+            print(f"BMP581 Pressure = {hpa_pressure:.2f} hPA")
+            print(f"BMP581 Alt = {meters * 3.28084:.2f} feet \n")
 
     except OSError as e:
-        print("BMP390: Failed to read sensor.")
+        print("BMP581: Failed to read sensor.")
         return None, None, None, "ERROR_BMP680:" + str(e)
 
     return celsius, hpa_pressure, meters, None
@@ -286,7 +278,7 @@ buzzer_sound = True
 debug = False
 
 # Sea level pressure adjustment is 0.03783 hPA per foot @ 365'
-SLP_CALIBRATION_BMP390 = 0.6613
+SLP_CALIBRATION_BMP581 = 0.6613
 SLP_CALIBRATION_BME680 = 2.1240
 INIT_SEA_LEVEL_PRESSURE = 1010.70
 
@@ -309,7 +301,7 @@ else:
 print("====================================")
 print(f"oled_spi:{oled_spi}\n")
 
-# BMP390 setup
+# BMP581 setup
 if debug:
     print(f"chip_id: {bmp.get_id()}")
     print(f"pwr mode: {bmp.get_power_mode()}")
@@ -317,10 +309,10 @@ if debug:
     print(f"Calibration data: {calibration_data}")
     print(f"Event: {bmp.get_event()}; Int status: {bmp.get_int_status()}; FIFO length: {bmp.get_fifo_length()}")    
 
-#Init for bmp390 continuous measurement mode before loop
+#Init for bmp581 continuous measurement mode before loop
 bmp.pressure_oversample_rate = bmp.OSR128
 bmp.temperature_oversample_rate = bmp.OSR8
-print(f"Current bmp390 Power mode setting: {bmp.power_mode}\n")
+print(f"Current bmp581 Power mode setting: {bmp.power_mode}\n")
 
 # blank display
 oled.fill(0)
@@ -328,7 +320,7 @@ oled.text("Starting", 0, 0)
 oled.text("Calibration...", 0, 12)
 oled.show()
 
-slp_hpa_bmp390 = INIT_SEA_LEVEL_PRESSURE 
+slp_hpa_bmp581 = INIT_SEA_LEVEL_PRESSURE 
 slp_hpa_bme680 = INIT_SEA_LEVEL_PRESSURE
 
 print("start of main loop\n")
@@ -336,10 +328,10 @@ loop = True
 # main loop
 try:
     while loop:             
-        # get bmp390 sensor data, overwrite temp_c, temp_f, and altitude_m
-        temp_c_bmp390, hpa_bmp390, alt_m_bmp390, error_bmp390 = bmp390_sensor(slp_hpa_bmp390)
-        if error_bmp390:
-            print (f"BMP390 ERROR {error_bmp390}")
+        # get bmp581 sensor data, overwrite temp_c, temp_f, and altitude_m
+        temp_c_bmp581, hpa_bmp581, alt_m_bmp581, error_bmp581 = bmp581_sensor(slp_hpa_bmp581)
+        if error_bmp581:
+            print (f"BMP581 ERROR {error_bmp581}")
         
         # get bme680 sensor data
         temp_c_bme680,  humidity_bme680, hpa_bme680,  iaq_bme680,  alt_m_bme680, error_bme680  = bme680_sensor(slp_hpa_bme680)
@@ -347,19 +339,19 @@ try:
             print (f"BME680 ERROR {error_bme680}")
             
         # calc altitude based on pressures
-        initial_alt_bmp390 = calc_altitude(hpa_bmp390, slp_hpa_bmp390)
+        initial_alt_bmp581 = calc_altitude(hpa_bmp581, slp_hpa_bmp581)
         initial_alt_bme680 = calc_altitude(hpa_bme680, slp_hpa_bme680)
-        print(f"bmp390 initial est {initial_alt_bmp390*3.28084:.1f} feet")
+        print(f"bmp581 initial est {initial_alt_bmp581*3.28084:.1f} feet")
         print(f"bme680 initial est {initial_alt_bme680*3.28084:.1f} feet")
         
         adjust_to_feet = float(input("\nEnter altitude (in feet): "))
         adjust_to_meters = adjust_to_feet / 3.28084
-        hpa_adj_bmp390 = calc_sea_level_pressure(hpa_bmp390, adjust_to_meters) - slp_hpa_bmp390
+        hpa_adj_bmp581 = calc_sea_level_pressure(hpa_bmp581, adjust_to_meters) - slp_hpa_bmp581
         hpa_adj_bme680 = calc_sea_level_pressure(hpa_bme680, adjust_to_meters) - slp_hpa_bme680
 
         print("\nCalibration values:")
         print(f"\nINIT_SEA_LEVEL_PRESSURE = {INIT_SEA_LEVEL_PRESSURE:.2f}")
-        print(f"SLP_CALIBRATION_BMP390 = {hpa_adj_bmp390:.4f}")
+        print(f"SLP_CALIBRATION_BMP581 = {hpa_adj_bmp581:.4f}")
         print(f"SLP_CALIBRATION_BME680 = {hpa_adj_bme680:.4f}\n")
         
         oled.fill(0)
@@ -368,7 +360,7 @@ try:
         oled.text(f"adj feet={adjust_to_feet:.0f}", 8, 20)
 
         oled.text(f"Corrections:", 0, 32)
-        oled.text(f"BMP390 = {hpa_adj_bmp390:.4f}", 8, 42)
+        oled.text(f"BMP581 = {hpa_adj_bmp581:.4f}", 8, 42)
         oled.text(f"BME680 = {hpa_adj_bme680:.4f}", 8, 52)
         oled.show()
         
