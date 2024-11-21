@@ -1,7 +1,7 @@
 # Raspberry Pi Pico 2: Altimeter = Elevation & sea level pressure adjust - Nov 2024
 #
 # Sensors used
-#    - BMP581 highly accurate pressure & altitude
+#    - BMP585 highly accurate pressure & altitude
 #    - BME680 temp, humidity, pressure, IAQ, altitude
 #    - rotary encoder to adjust alt & pressure
 #      use sea level pressure at nearest airport
@@ -49,7 +49,7 @@ from os import uname
 from sys import implementation
 from time import sleep as zzz
 
-from micropython_bmp58x import bmp58x
+from micropython_bmpxxx import bmpxxx
 from bme680 import BME680_I2C
 from framebuf import FrameBuffer, MONO_HLSB
 from machine import Pin, I2C
@@ -104,19 +104,24 @@ i2c = I2C(id=1, scl=Pin(27), sda=Pin(26), freq=400_000)
 buzzer = Pin(28, Pin.OUT)
 
 error_bme680 = False
-error_bmp581 = False
+error_bmp585 = False
+print(f"init {error_bmp585=}")
 # BME690 #77 address by default, can change addr if SDO pin LOW = 0x76
 
 # Addr 0x47 - should be for 585  TODO ???
 
-try: bme = BME680_I2C(i2c=i2c, address=0x77)
+try:
+    bme = BME680_I2C(i2c=i2c, address=0x77)
 except:
     error_bme680 = True
     print("ERROR: init BME680_I2C(i2c=i2c, address=0x77)")
-try: bmp = bmp58x.BMP581(i2c=i2c, address=0x47)
+try:
+    bmp = bmpxxx.BMP585(i2c=i2c, address=0x47)
+    bmp.pressure_oversample_rate = bmp.OSR128
+    bmp.temperature_oversample_rate = bmp.OSR8
 except:
-    error_BMP581 = True
-    print("ERROR: init bmp58x.BMP581(i2c=i2c, address=0x47)")
+    error_bmp585 = True
+    print("ERROR: init bmp58x.BMP585(i2c=i2c, address=0x47)")
 
 oled_spi = machine.SPI(1)
 # print(f"oled_spi:{oled_spi}")
@@ -244,11 +249,11 @@ def calc_altitude(hpa, sea_level_pressure):
     return meters
 
 
-def bmp581_sensor(sea_level_pressure):
+def bmp585_sensor(sea_level_pressure):
     """
-    read temp, pressure from the bmp581 sensor
+    read temp, pressure from the bmp585 sensor
     
-    Driver code by 2024 Brad Carlile  bmp585, bmp581, bmp390
+    Driver code by 2024 Brad Carlile  bmp585, bmp585, bmp390
     MicroPython_BMP58x: https://github.com/bradcar/MicroPython_BMP58x
     
     Pressure accuracy:  +/-3 Pa, +/-0.25 meters
@@ -266,12 +271,12 @@ def bmp581_sensor(sea_level_pressure):
         meters = calc_altitude(hpa_pressure, sea_level_pressure)
 
         if debug:
-            print(f"BMP581 Temp °C = {celsius:.2f} C")
-            print(f"BMP581 Pressure = {hpa_pressure:.2f} hPA")
-            print(f"BMP581 Alt = {meters * 3.28084:.2f} feet\n")
+            print(f"BMP585 Temp °C = {celsius:.2f} C")
+            print(f"BMP585 Pressure = {hpa_pressure:.2f} hPA")
+            print(f"BMP585 Alt = {meters * 3.28084:.2f} feet\n")
 
     except OSError as e:
-        print("BMP581: Failed to read sensor.")
+        print("BMP585: Failed to read sensor.")
         return None, None, None, "ERROR_BMP680:" + str(e)
 
     return celsius, hpa_pressure, meters, None
@@ -424,21 +429,21 @@ def adjust_altitude_slp(buzz, bmp_update):
     dependent variable is new Sea Level Pressure in hpa
 
     param:buzz: buzz if move to next input
-    param:bmp_update: if bmp_update=True, then update bmp581, else bme680
+    param:bmp_update: if bmp_update=True, then update bmp585, else bme680
     """
-    global metric, sea_level_pressure, slp_hpa_bme680, slp_hpa_bmp581
+    global metric, sea_level_pressure, slp_hpa_bme680, slp_hpa_bmp585
     
     new_alt = altitude_m
     if bmp_update:
-        adjust = SLP_CALIBRATION_BMP581
-        new_slp = slp_hpa_bmp581 - adjust
+        adjust = SLP_CALIBRATION_BMP585
+        new_slp = slp_hpa_bmp585 - adjust
     else:
         adjust = SLP_CALIBRATION_BME680
         new_slp = slp_hpa_bme680 - adjust
 
     print(f"Adjustment start: alt= {new_alt} m, {new_alt * 3.28084} ft")
-    print(f"global slp values={slp_hpa_bmp581=}, {slp_hpa_bme680=}\n")
-    print(f"updating: {"bmp581" if bmp_update else "bme680"}")
+    print(f"global slp values={slp_hpa_bmp585=}, {slp_hpa_bme680=}\n")
+    print(f"updating: {"bmp585" if bmp_update else "bme680"}")
     print(f"{new_slp=}: {new_slp=}")
     
     if buzz:
@@ -477,8 +482,8 @@ def adjust_altitude_slp(buzz, bmp_update):
         new_slp = calc_sea_level_pressure(pressure_hpa, new_alt) - adjust
         if debug:
             print(f"{new_alt=}, {new_alt_feet=}")
-            print(f"updating: {"bmp581" if bmp_update else "bme680"}")
-            print(f"{new_slp=}, {slp_hpa_bmp581=}, {slp_hpa_bme680=}")
+            print(f"updating: {"bmp585" if bmp_update else "bme680"}")
+            print(f"{new_slp=}, {slp_hpa_bmp585=}, {slp_hpa_bme680=}")
         update_settings_display(new_alt, new_slp)
 
     # upon loop exit beep, and update global slp_hpa_bme680
@@ -526,7 +531,7 @@ debounce_3_time = 0
 # SLP_CALIBRATION_BME680 = 2.8652
 
 INIT_SEA_LEVEL_PRESSURE = 1010.70
-SLP_CALIBRATION_BMP581 = -0.1931
+SLP_CALIBRATION_BMP585 = -0.1931
 SLP_CALIBRATION_BME680 = 1.0147
 
 warning_toggle = 0
@@ -545,17 +550,6 @@ else:
 print("====================================")
 print(f"oled_spi:{oled_spi}\n")
 
-debug = True
-# BMP581 configuration debug, should be initalized for NORMAL power mode (continuous reading)
-if debug and not error_bmp581:
-    print(f"Current bmp581 Power mode setting: {bmp.power_mode}\n")
-debug = False
-
-# initialize BMP581 for highest recommended accuracy
-if not error_bmp581:
-    # https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmp581-ds002.pdf
-    bmp.pressure_oversample_rate = bmp.OSR128
-    bmp.temperature_oversample_rate = bmp.OSR8
     
 # blank display
 oled.fill(0)
@@ -573,7 +567,7 @@ except:
     sea_level_pressure = INIT_SEA_LEVEL_PRESSURE
     print(f"Using program sea level pressure in constant ={sea_level_pressure}")
     
-slp_hpa_bmp581 = sea_level_pressure + SLP_CALIBRATION_BMP581
+slp_hpa_bmp585 = sea_level_pressure + SLP_CALIBRATION_BMP585
 slp_hpa_bme680 = sea_level_pressure + SLP_CALIBRATION_BME680
 
 if buzzer_sound: buzzer.on()
@@ -611,9 +605,9 @@ try:
 
         # Button 2: Adjust altitude or sea level hpa to known values
         if button2():
-            adjust_altitude_slp(True, bmp_update=not error_bmp581)
+            adjust_altitude_slp(True, bmp_update=not error_bmp585)
             print(f"Adjusted sea level pressure = {sea_level_pressure:.2f} hpa")
-            print(f"Calibrated BMP581 Sea level = {slp_hpa_bmp581:.2f} hpa")
+            print(f"Calibrated BMP585 Sea level = {slp_hpa_bmp585:.2f} hpa")
             print(f"Calibrated BME680 Sea level = {slp_hpa_bme680:.2f} hpa\n")
         
         # Button 3: detail/Summary
@@ -631,29 +625,32 @@ try:
                 print(f"WARNING: onboard Pico 2 temp = {temp:.1f}C")
             
             # every loop use current slp and correct for each sensor
-            slp_hpa_bmp581 = sea_level_pressure + SLP_CALIBRATION_BMP581
+            slp_hpa_bmp585 = sea_level_pressure + SLP_CALIBRATION_BMP585
             slp_hpa_bme680 = sea_level_pressure + SLP_CALIBRATION_BME680
                 
             # get bme680 sensor data
-            temp_c_bme680,  humidity_bme680, hpa_bme680,  iaq_bme680,  alt_m_bme680, error_bme680  = bme680_sensor(slp_hpa_bme680)
             if error_bme680:
                 print(f"No lower-precision Altitude BME680 sensor: {error_bme680}\n")
+            else:
+                temp_c_bme680,  humidity_bme680, hpa_bme680,  iaq_bme680,  alt_m_bme680, error_bme680  = bme680_sensor(slp_hpa_bme680)
+
             first_run = False
             
-            # get BMP581 sensor data, overwrite temp_c, temp_f, and altitude_m
-            temp_c_bmp581, hpa_bmp581, alt_m_bmp581, error_bmp581 = bmp581_sensor(slp_hpa_bmp581)
-            if error_bmp581:
-                print(f"No high-precision Altitude bmp581 sensor: {error_bmp581}\n")
-            
+            # get BMP585 sensor data, overwrite temp_c, temp_f, and altitude_m
+            if error_bmp585:
+                print(f"No high-precision Altitude bmp585 sensor\n")
+            else:
+                temp_c_bmp585, hpa_bmp585, alt_m_bmp585, error_bmp585 = bmp585_sensor(slp_hpa_bmp585)
+
             temp_c, humidity, pressure_hpa, iaq, altitude_m, temp_f = (None,) * 6
             
             # Check if both sensors have errors, exit loop
-            if error_bme680 and error_bmp581:
+            if error_bme680 and error_bmp585:
                 oled.fill(0)
                 oled.text("Error", 0, 0, 1)
                 oled.fill_rect(0, 11, 128, 18, 1)
                 oled.text(f"No Alt Sensors:", 5, 12, 0)
-                oled.text(f"BMP581 & BME680", 5, 21, 0)
+                oled.text(f"BMP585 & BME680", 5, 21, 0)
                 oled.show()  
                 break
             
@@ -665,11 +662,11 @@ try:
                 pressure_hpa = hpa_bme680
                 iaq = iaq_bme680
             
-            # Update BMP581 data, if available and overwrite temperature and altitude
-            if not error_bmp581:
-                temp_c = temp_c_bmp581
-                altitude_m = alt_m_bmp581
-                pressure_hpa = hpa_bmp581               
+            # Update BMP585 data, if available and overwrite temperature and altitude
+            if not error_bmp585:
+                temp_c = temp_c_bmp585
+                altitude_m = alt_m_bmp585
+                pressure_hpa = hpa_bmp585               
             temp_f = (temp_c * 9.0 / 5.0) + 32.0
             first_run = False
 
