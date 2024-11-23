@@ -221,31 +221,27 @@ def iaq_quality(iaq_value):
 
 def calc_sea_level_pressure(hpa, meters):
     """
-    Calculate the sea level pressure from the hpa pressure at a known elevation
-    formula from: https://cdn-shop.adafruit.com/datasheets/BST-BMP180-DS000-09.pdf
-
-    slightly different formula at:
-       https://www.brisbanehotairballooning.com.au/pressure-and-altitude-conversion/
-       https://en.wikipedia.org/wiki/Barometric_formula
+    Calculate the sea level pressure from the hpa pressure at a known elevation from:
+    https://ncar.github.io/aircraft_ProcessingAlgorithms/www/PressureAltitude.pdf
 
     :param hpa: current hpa pressure
     :param meters: meters elevation
     :return: sea level hpa based on known altitude & pressure
     """
-    sea_level_pressure = hpa / (1.0 - (meters / 44330.0)) ** 5.255
+    sea_level_pressure = hpa / (1.0 - (meters / 44330.77)) ** (1/0.1902632)
     return sea_level_pressure
 
 
 def calc_altitude(hpa, sea_level_pressure):
     """
-    Calculate the altitude from sea level pressure and hpa pressure
-    formula from: https://cdn-shop.adafruit.com/datasheets/BST-BMP180-DS000-09.pdf
-
+    Calculate the altitude from sea level pressure and hpa pressure from:
+    https://ncar.github.io/aircraft_ProcessingAlgorithms/www/PressureAltitude.pdf
+    
     :param hpa: current hpa pressure
     :param sea_level_pressure: sea level hpa from nearest airport
     :return: meters elevation
     """
-    meters = 44330.0 * (1.0 - (hpa / sea_level_pressure) ** (1.0 / 5.255))
+    meters = 44330.77 * (1.0 - (hpa / sea_level_pressure) ** 0.1902632)
     return meters
 
 
