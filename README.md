@@ -1,12 +1,12 @@
 # digital-altimeter-rp2
-Digital Altimeter with adjustments for known altitude/sea-level-pressure using Raspberry Pi Pico2 with BMP581(or BM390), BME680, OLED Display
+Digital Altimeter with adjustments for known altitude/sea-level-pressure using Raspberry Pi Pico2 with BMP585(or or BMP581, or BMP390), BME680, OLED Display
 
 ## Features of this Raspberry Pi Pico 2 code:
-* BMP581 (I2C1 #47 addr) - latest generation highly accurate air pressure, temp, and altitude.
+* BMP585 (I2C1 #47 addr) - latest generation highly accurate air pressure, temp, and altitude.
   * used as primary sensor for air pressure and altitude
   * now uses my driver code for quick switch between bmp585, bmp581, bmp390
     * https://github.com/bradcar/MicroPython_BMP58x
-  * BMP581 is on the same I2C bus as BME680
+  * BMP585 is on the same I2C bus as BME680
 * BME680 (I2C1 #77 addr) - for inside temp & humidity, air pressure, air quality, and altitude.
 * Large 20px fonts.
 * SSD1309 (SDI) - uses SSD1306 SW, both SDI & I2C code - SDI is faster
@@ -16,6 +16,11 @@ Digital Altimeter with adjustments for known altitude/sea-level-pressure using R
 * Temperature from on-board RP2350 (no external pins, ADC4)
 
 Deprecated but easy to switch back to:
+* BMP581 (I2C1 #47 addr) - latest generation highly accurate air pressure, temp, and altitude.
+  * used as primary sensor for air pressure and altitude
+  * now uses my driver code for quick switch between bmp585, bmp581, bmp390
+    * https://github.com/bradcar/MicroPython_BMP58x
+  * BMP581 is on the same I2C bus as BME680
 * BMP390 (I2C1 #76 addr) - previous generation air pressure, temp, and altitude.
   * used as primary sensor for air pressure and altitude
   * on same I2C bus as BME680, solder bump on sensor makes it #76 addr to have code address it distictly from bme680
@@ -37,6 +42,6 @@ todo
 * MicroPython Fonts of various sizes:  https://github.com/peterhinch/micropython-font-to-py/tree/master
 * My driver code for quick switch between bmp585, bmp581, bmp390
     * https://github.com/bradcar/MicroPython_BMP58x
+* Altitude calculations in my codes use NSF's NCAR formula: https://ncar.github.io/aircraft_ProcessingAlgorithms/www/PressureAltitude.pdf
  
 ## TODOs
-* try bmp585
