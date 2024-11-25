@@ -43,5 +43,7 @@ todo
 * My driver code for quick switch between bmp585, bmp581, bmp390
     * https://github.com/bradcar/MicroPython_BMP58x
 * Altitude calculations in my codes use NSF's NCAR formula: https://ncar.github.io/aircraft_ProcessingAlgorithms/www/PressureAltitude.pdf
+* IAQ calculation: https://github.com/thstielow/raspi-bme680-iaq
+
  
 ## TODOs
