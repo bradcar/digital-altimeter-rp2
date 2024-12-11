@@ -1,5 +1,5 @@
 # digital-altimeter-rp2
-Digital Altimeter with adjustments for known altitude/sea-level-pressure using Raspberry Pi Pico2 with BMP585(or or BMP581, or BMP390), BME680, OLED Display
+Digital Altimeter with adjustments for known altitude/sea-level-pressure using Raspberry Pi Pico2 with BMP585(or BMP581, BMP390, BMP280), BME680, OLED Display
 
 ## Features of this Raspberry Pi Pico 2 code:
 * BMP585 (I2C1 #47 addr) - latest generation highly accurate air pressure, temp, and altitude.
@@ -45,5 +45,5 @@ todo
 * Altitude calculations in my codes use NSF's NCAR formula: https://ncar.github.io/aircraft_ProcessingAlgorithms/www/PressureAltitude.pdf
 * IAQ calculation: https://github.com/thstielow/raspi-bme680-iaq
 
- 
 ## TODOs
+* adapt to also become a vertical feet logger for skiing
