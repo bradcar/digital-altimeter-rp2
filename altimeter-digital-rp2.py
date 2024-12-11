@@ -119,6 +119,7 @@ try:
     bmp = bmpxxx.BMP585(i2c=i2c, address=0x47)
     bmp.pressure_oversample_rate = bmp.OSR128
     bmp.temperature_oversample_rate = bmp.OSR8
+    bmp.iir_coefficient = bmp.COEF_7
 except:
     error_bmp585 = True
     print("ERROR: init bmp58x.BMP585(i2c=i2c, address=0x47)")
@@ -277,6 +278,37 @@ def bmp585_sensor(sea_level_pressure):
 
     return celsius, hpa_pressure, meters, None
 
+def calculate_iaq(gas_ohms, percent_humidity):
+    """
+    NO ONE can use the formula in this method  commercially
+    See more at http://www.dsbird.org.uk
+    This formula is from software, the ideas and concepts is Copyright (c) David Bird 2019.
+    https://github.com/G6EJD/BME680-Example/blob/master/ESP32_bme680_CC_demo_03.ino
+    See more at http://www.dsbird.org.uk
+    """
+    hum_weighting = 0.25
+    gas_weighting = 0.75
+    hum_reference = 40
+    gas_lower_limit = 10000
+    gas_upper_limit = 300000
+    
+    # Humidity score calculation
+    if 38 <= percent_humidity <= 42:
+        humidity_score = hum_weighting * 100
+    elif percent_humidity < 38:
+        humidity_score = (hum_weighting / hum_reference) * percent_humidity * 100
+    else:
+        humidity_score = ((-hum_weighting / (100 - hum_reference) * percent_humidity) + 0.416666) * 100
+    
+    # Gas score calculation
+    gas_score = (gas_weighting / (gas_upper_limit - gas_lower_limit) * gas_ohms -
+                 (gas_lower_limit * (gas_weighting / (gas_upper_limit - gas_lower_limit)))) * 100
+    gas_score = max(0, min(75, gas_score))
+    
+    # IAQ calculation with the new formula
+    iaq = (100 - (humidity_score + gas_score)) * 5
+    return iaq
+
 
 def bme680_sensor(sea_level_pressure):
     """
@@ -298,8 +330,11 @@ def bme680_sensor(sea_level_pressure):
         celsius = bme.temperature
         percent_humidity = bme.humidity
         hpa_pressure = bme.pressure
-        gas_kohms = bme.gas / 100
-        iaq_value = log(gas_kohms) + 0.04 * percent_humidity
+        iaq_value = calculate_iaq(bme.gas, percent_humidity)
+        
+        print (f"{bme.gas=}")
+        print (f"{percent_humidity=}")
+        print (f"{iaq_value=}\n")
 
         # derive altitude from pressure & sea level pressure
         meters = calc_altitude(hpa_pressure, sea_level_pressure)
