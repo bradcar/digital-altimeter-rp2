@@ -317,10 +317,6 @@ def bme680_sensor(sea_level_pressure):
         percent_humidity = bme.humidity
         hpa_pressure = bme.pressure
         iaq_value = calculate_iaq(bme.gas, percent_humidity)
-        
-        print (f"{bme.gas=}")
-        print (f"{percent_humidity=}")
-        print (f"{iaq_value=}\n")
 
         # derive altitude from pressure & sea level pressure
         meters = calc_altitude(hpa_pressure, sea_level_pressure)
