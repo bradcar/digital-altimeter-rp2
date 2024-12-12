@@ -282,18 +282,27 @@ def calculate_iaq(gas_ohms, percent_humidity):
     """
     my own crude indoor IAQ Conversion, limit between 0 & 500
     most of iaq comes from gas resistance, add some humidity outside 40-60% humidity
-    """
-    hum_weighting = 0.25
-    humidity_score = 25.0
-    if percent_humidity < 40.0:
-        humidity_score = (hum_weighting / 40.0) * percent_humidity * 100
-    elif percent_humidity > 60.0:
-        humidity_score = ((-hum_weighting / (100 - 60.0) * percent_humidity) + 0.60) * 100
-    humidity_score = (25.0 - humidity_score)
+
+    The added humidity is symmetric parabolic approximation of a piecewise function:
+    - Starts at 25.0 at x = 0 and decreases to 0.0 at x = 40 (quadratic).
+    - Remains at 0.0 between x = 40 and x = 60.
+    - Increases from 0.0 at x = 60 to 25.0 at x = 100 (quadratic).
     
-    # Gas score calculation
+    """
+    if 0 <= percent_humidity <= 40:
+        # humidity_score = 25.0 - (25.0 / 40) * x       # original linear
+        humidity_score = 25.0 * ((40 - percent_humidity) / 40) ** 2 
+    elif 40 < percent_humidity <= 60:
+        humidity_score = 0.0  # Flat region
+    elif 60 < percent_humidity <= 100:
+        # humidity_score = 25.0 * ((x - 60) / 40) ** 2  # original linear 
+        humidity_score = 25.0 * ((percent_humidity - 60) / 40) ** 2
+    else:
+        humidity_score = None  # Out of bounds
+    
+    # Gas score calculation, multipy humdity score by 6.0
     ln_iaq = log(gas_ohms)
-    iaq =(9.4751 * (ln_iaq) ** 2 - 316.31 * (ln_iaq) + 2524.0) + humidity_score
+    iaq =(9.4751 * (ln_iaq) ** 2 - 316.31 * (ln_iaq) + 2524.0) + 6 * humidity_score
     return max (0, min(500.0, iaq))
 
 def bme680_sensor(sea_level_pressure):
