@@ -280,35 +280,21 @@ def bmp585_sensor(sea_level_pressure):
 
 def calculate_iaq(gas_ohms, percent_humidity):
     """
-    NO ONE can use the formula in this method  commercially
-    See more at http://www.dsbird.org.uk
-    This formula is from software, the ideas and concepts is Copyright (c) David Bird 2019.
-    https://github.com/G6EJD/BME680-Example/blob/master/ESP32_bme680_CC_demo_03.ino
-    See more at http://www.dsbird.org.uk
+    my own crude indoor IAQ Conversion, limit between 0 & 500
+    most of iaq comes from gas resistance, add some humidity outside 40-60% humidity
     """
     hum_weighting = 0.25
-    gas_weighting = 0.75
-    hum_reference = 40
-    gas_lower_limit = 10000
-    gas_upper_limit = 300000
-    
-    # Humidity score calculation
-    if 38 <= percent_humidity <= 42:
-        humidity_score = hum_weighting * 100
-    elif percent_humidity < 38:
-        humidity_score = (hum_weighting / hum_reference) * percent_humidity * 100
-    else:
-        humidity_score = ((-hum_weighting / (100 - hum_reference) * percent_humidity) + 0.416666) * 100
+    humidity_score = 25.0
+    if percent_humidity < 40.0:
+        humidity_score = (hum_weighting / 40.0) * percent_humidity * 100
+    elif percent_humidity > 60.0:
+        humidity_score = ((-hum_weighting / (100 - 60.0) * percent_humidity) + 0.60) * 100
+    humidity_score = (25.0 - humidity_score)
     
     # Gas score calculation
-    gas_score = (gas_weighting / (gas_upper_limit - gas_lower_limit) * gas_ohms -
-                 (gas_lower_limit * (gas_weighting / (gas_upper_limit - gas_lower_limit)))) * 100
-    gas_score = max(0, min(75, gas_score))
-    
-    # IAQ calculation with the new formula
-    iaq = (100 - (humidity_score + gas_score)) * 5
-    return iaq
-
+    ln_iaq = log(gas_ohms)
+    iaq =(9.4751 * (ln_iaq) ** 2 - 316.31 * (ln_iaq) + 2524.0) + humidity_score
+    return max (0, min(500.0, iaq))
 
 def bme680_sensor(sea_level_pressure):
     """
