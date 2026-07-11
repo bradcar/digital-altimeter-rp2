@@ -9,7 +9,8 @@ Digital Altimeter with adjustments for known altitude/sea-level-pressure using R
   * BMP585 is on the same I2C bus as BME680
 * BME680 (I2C1 #77 addr) - for inside temp & humidity, air pressure, air quality, and altitude.
 * Large 20px fonts.
-* SSD1309 (SDI) - uses SSD1306 SW, both SDI & I2C code - SDI is faster
+* SSD1309 (SPI) - uses SSD1306 SW, both SPI & I2C code - SPI is faster
+  * 128px x 64px
   * ssd1306 Framebuffer-based SW for printing text & blit of bitmap images
 * button debounce that uses efficient interrupt code (does not use CPU cycles to spin/wait on button debounce, yay!)
   * Has 3 buttons (1. set/adjust alt/sea-level-pressure, 2. F/Celsius, 3. Big Font Summary or detail summary in small font)
